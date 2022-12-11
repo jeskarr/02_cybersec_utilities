@@ -3,9 +3,10 @@
 Some useful tools for the second part of the Cybersecurity course @UniPd
 
 ## Requirements
-- Disassembler -> we use ***Radare2*** and *Ida*
-    - *to download Radare:* https://github.com/radareorg/radare2
+- Disassembler -> we use ***Ida***
     - *to download Ida (free version):* https://www.hex-rays.com/ida-free/
+- Hexadecimal editor -> we use ***Radare2*** (alternative: *Hex Editor*)
+    - *to download Radare:* https://github.com/radareorg/radare2
 - Debugger -> we use ***GDB***
     - it should already been installed if you have Linux *(on Windows you will need to install it, please note that in this case MinGW distributes a Windows version of it)*
 - Other tools useful for pwning:
@@ -42,5 +43,15 @@ r2 -w name_of_the_file
 ```
 > ***PLEASE NOTE:*** it's recommended doing a copy of the file and working with radare on it, rather than the original one
 
+### GDB
+To run a file using GDB, i.e. debugging it:
+```
+gdb name_of_the_file
+start
+```
+To add a breakpoint:
+```
+b*memory_address
+```
 
 ## Pwning
