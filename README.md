@@ -18,7 +18,8 @@ Some useful tools for the second part of the Cybersecurity course @UniPd
 
 
 ## Reverse Engineering
-### Some useful commands (to use from terminal):
+### Some useful commands
+Let's see some commands to use from terminal that might be useful in our analysis:
 - ***./name_of_the_program***
     - to simply run a program in the terminal
 - ***strings ./name_of_the_program***
