@@ -80,7 +80,8 @@ wx new_bytes
 To run a file using GDB, i.e. debugging it:
 ```
 gdb name_of_the_file
-start
+break main
+run
 ```
 To add a breakpoint:
 ```
