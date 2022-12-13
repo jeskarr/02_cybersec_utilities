@@ -78,14 +78,59 @@ wx new_bytes
 
 ### GDB
 To run a file using GDB, i.e. debugging it:
-```
+```C
 gdb name_of_the_file
-break main
+//add breakpoints
 run
 ```
+In this way the program will stop at the first breakpoint *(please note that if there are no breakpoints, it will run your program to completion without debugging it at all, unless of course the program crashes. In that case, gdb will stop and allow you to debug it)*. 
+
+> ***PLEASE NOTE:*** If you don't add breakpoints, you can still stop the program while it's running by typing ```(ctrl) + c```. Gdb will stop your program at whatever line it has just executed. From here you can examine variables and move through your program.
+
 To add a breakpoint:
-```
+```C
 b*memory_address
+//or similarly
+break name_of_the_function
 ```
+
+> ***PLEASE NOTE:*** Breakpoints stay set when your program ends, so you do not have to reset them unless you quit gdb and restart it. 
+
+Other useful commands regarding breakpoints:
+- To list current breakpoints: ```info break```
+- To delete a breakpoint: ```del breakpoint_number```
+- To temporarily disable a breakpoint: ```dis breakpoint_number```
+- To enable a breakpoint: ```en breakpoint_number```
+- To ignore a breakpoint until it has been crossed x times: ```ignore breakpoint_number x```
+
+On the other hand you might want:
+- To execute one line of code:
+    - just type ```step``` or ```s```. If the line to be executed is a function call, gdb will step into that function and start executing its code one line at a time. If you want to execute the entire function with one keypress, type ```next``` or ```n```.
+- to resume normal execution:
+    - type ```continue``` or ```c```. In this way, gdb will run until your program ends, your program crashes, or gdb encounters a breakpoint. 
+
+```
++ comandi jump nome_funzione  /salta alla funzione richiesta need br and run
+clear main                         /toglie i brakpoint dalla funzione indicata
+ info registers                     /mostra i registri
+ info variables                     /mostra variabili
+ printf "%s", (char *) flag_buf 
+ oppure 
+ x/s (char *) flag_buf              /stampa una variabile come stringa
+ disassemble bash                   /mostra assembly della funzione
+ x/200bx $esp                       /mostra la stack, se non c'è esp usa rsp
+ r < a                              /da come input il file a (da usare con cyclic)
+ r < $(python -c "print('A'*50)")   /da come input il risultato dello script
+bt    /backtrace mostra le chiamate fatte finora dal programma
+Examining data When your program is stopped you can examine or set the value of any variable. To examine a variable, type "print [variablename]". To set the value of a variable, type "set [variablename]=[valuetoset]".
+
+General Tips
+
+    gdb has very good help files. Type "help [commandname]" while in gdb.
+    gdb also keeps lots of information about your program while it's running. Type "info" to see this information while you're in gdb.
+    if you change and recompile your program in another window, you don't need to restart gdb. Just type "run" again, and gdb will notice the changes and load the new copy of your program.
+    pressing enter executes the last command again. This makes it easily to step through your program line by line. 
+``` 
+
 
 ## Pwning
