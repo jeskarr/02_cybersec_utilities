@@ -126,12 +126,13 @@ To show information about the current state of the program you can use the keywo
 
 > ***PLEASE NOTE:*** If you just type info, it will show you all the possible subcommands.
 
-Sometimes, the content of register or variables might be an hexadecimal (in the form 0x...), so it might be useful to print the variable as a string. This can be done using:
+Sometimes, the content of register or variables might be an hexadecimal (in the form 0x...), so it might be useful to print the variable as a string. This is (of course) only possible when the program has been runned and it's stopped at a breakpoint and can simply be achieved by typing:
 ```C
 printf "%s", (char *) var_address       // (char*) is in brackets because is optional
 //or similarly
-x/s var_address        // in general x / [Format] [Address expression]
+x/s var_address        // in general  is i
 ```
+> ***PLEASE NOTE:*** We use in general ```x / Format Address_expression``` to show in a specific format *(i.e. s for strings, b for bytes...)* a piece of memory, which could be an address in hexadecimal or a register (in this case remember to use $ before the name of the register). *Example: we use ```x/200bx $esp``` to display the stack in bytes (x for hexadecimal which is optional since is the default). Alternatively, we could use rsp instead of esp but the syntax is the same*.
 
 Other commands used to examine data when your program is stopped:
    - To check the assembly code of the program:
@@ -141,10 +142,38 @@ Other commands used to examine data when your program is stopped:
 
 
 ## Pwning
+Most of the times pur objective is to do a buffer overflow. However, it might be time-consuming to do this by hand. To help us in this
+
+# Pwntools
 
 ```
- x/200bx $esp                       /mostra la stack, se non c'è esp usa rsp
+ GDB ESEMPI ALTRA ROBA DI TRINCAW
  r < a                              /da come input il file a (da usare con cyclic)
  r < $(python -c "print('A'*50)")   /da come input il risultato dello script
+ 
+ +MANCA TUTTO CHECKSEC DI TRINCAW 
+  pwn checksec nomefile              /simile al comando file ma da piu dettagli sull' eseguibile
+ -Outputs di Checksec
+  1- RELRO                          /Relocation Read-Only la tabella GOT non puo essere editata. Vedi es 1_GOT (exit call overlapped)
+  2- CANARY                         /Controllo sul return della funzione chiamata che si accerta che riporti alla funzione precedente
+  3- NX                             /Non-Executable La stack non è eseguibile
+  4- PIE                            /Position Independent Executable Indirizzi shiftati di uno stesso offset comune
+ Fonti:                             https://blog.siphos.be/2011/07/high-level-explanation-on-some-binary-executable-security/
+ 
+ +PWNTOOLS DI TRINCAW
+ from pwn import *                                             /importa pwntools in uno script
+ p.sendline(_msg_)                                             /scrive una stringa nel terminale
+ p.sendlineafter('_str_', _msg_)                               /scrive una stringa nel terminale solo dopo aver letto una certa stringa
+ p.recvall()                                                   /salva le stampe del terminale (da assegnare ad una variabile oppure printare)
+ p.interactive()                                               /permette di interagire con il terminale
+ asm(shellcraft.sh())                                          /crea una shell 
+ offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
+ c.binary.got["exit"]                                          /ottiene l'indirizzo della funzione exit in got
+ c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del
+ -ROP 
+ dst = context.binary.get_section_by_name(".data").header.     /ottiene l'indirizzo di un area di memoria
+ r(r14=dst, r15=b"flag.txt")                                   /scrive su i registri dati
+ r.call("system", [e.symbols["parameters"]])                   /richiama una funzione con parametri custom tramite ROP (aggiunge alla chain da richiamare)
+ p.send(b"A" * 8 * 5 + r.chain())                              /invia la chain ROP creata
 ``` 
 
