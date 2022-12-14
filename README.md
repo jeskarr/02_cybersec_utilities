@@ -2,6 +2,7 @@
 
 Some useful tools for the second part of the Cybersecurity course @UniPd
 
+
 ## Requirements
 - Disassembler -> we use ***Ida***
     - *to download Ida (free version):* https://www.hex-rays.com/ida-free/
@@ -13,21 +14,28 @@ Some useful tools for the second part of the Cybersecurity course @UniPd
     - ***PEDA*** *(i.e. Python Exploit Development Assistance for GDB)* available to download at: https://github.com/longld/peda
     - ***pwntool*** *(python library)*, available to download at: http://docs.pwntools.com/en/stable/
 
-
 > ***PLEASE NOTE:***  Before doing anything it's necessary to change the permissions of the directory we want to work on. We can achieve this with:   ``` chmod -R +x ./ ```
 
 
-## Reverse Engineering  (+ Patching)
-### Some useful commands
-Let's see some commands (available to use on terminal) that might be useful for Reverse Engineering:
+## Some useful commands
+Let's see some commands (available to use on terminal) that might be useful for Reverse Engineering and Pwning:
 - ***./name_of_the_program***
     - to simply run a program in the terminal
 - ***strings ./name_of_the_program***
     - to display all the strings used inside the program (e.g. if there is a psw or a flag stored it should appear)
 - ***objdump -option ./name_of_the_program***
     - to display information about one or more object files. The options control what particular information to display, we can for example choose the option -d (--disassemble) which display the ASM code of the input files.
+- ***checksec ./name_of_the_program***
+    - to display details (+ security properties) regarding the executable file *(e.g. architecture 32bit/64bit so we know the size of the registers)*. In particular, it outputs:
+        1. the architecture (32-64bit + little/big endian)
+        2. RELRO, which stands for *Relocation Read-Only*, and if enabled it makes the GOT *(i.e. the "Global Offset Table" of ELF executable files used to resolve functions dynamically)* read-only, which prevents some form of relocation attacks.
+        3. CANARY, they are special known values placed  between a buffer and control data on the stack to monitor buffer overflows. In this way, they can control that the function return to the real previous function
+        4. NX, which stands for *Non-Executable*, it's often enabled by default and in that case the stack is non-executable (basically NX enabled can mark certain areas of memory as non-executable). This is done because often buffer-overflow exploits put code on the stack and then try to execute it. However, making this writable area non-executable can prevent such attacks.
+        5. PIE, which stands for *Position Independent Executable*,  it's code that is placed somewhere in memory for execution regardless of its absolute address (basically the addresses are shifted of a (common) offset. 
 
-### Ida
+
+## Ida
+### Basics 
 To open Ida from terminal:
 ```
 cd idafree-8.1/
@@ -41,12 +49,15 @@ From "text view" we are now able to patch the instructions by doing: ``` Edit ->
 
 > ***PLEASE NOTE:*** When changing the type of view in Ida, if we have highlighted/selected some instruction, we will be able to see that instruction highlighted/selected in the other type of view as well.
 
+### Patching with Ida
 We can also patch instructions on Ida by changing the actual hexadecimal values. We pass to "Hex View" so we can see the hex of the instruction we want to patch. Then as before we can patch it by doing: ``` Edit -> Patch program -> Patch byte ``` and then apply the patch to the original program as before.
 
 > ***PLEASE NOTE:*** The instructions are identified in hex with their opcode. So if you want to change an instruction you need to change the hex/opcode with the one you want. You can find all the opcodes with the corresponding instruction at: http://ref.x86asm.net/coder64.html 
 In particular, please note that the opcode for the NOP instruction is 90.
 
-### Radare2
+
+## Radare2
+### Basics
 Radare2 is very useful for patching *(e.g. we can fill with NOP, invert or remove them and also paste new functions)*. In particular, we can use it for change some constant (since the free version of Ida doesn't really allow us to do so).
 
 Let's see some Radare commands (that we use on the terminal) that help us doing it:
@@ -67,7 +78,9 @@ s address
 pdf
 ```
 In this way you will be able to see on your left the memory addresses, on the center the bytes that make up the instructions and on the right the instructions themselves.
-- To patch the instruction (once you've moved to the corresponding memory address) you can use:
+
+### Patching with Radare2
+To patch the instruction (once you've moved to the corresponding memory address) you can use:
 ```C
 //to patch the assembly instructions
 wa new_instruction_in_ASM
@@ -76,7 +89,9 @@ wx new_bytes
 ```
 > ***PLEASE NOTE:*** you can double check the correctness of the patch with ```pdf```
 
-### GDB
+
+## GDB (included PEDA)
+### Basics
 To run a file using GDB, i.e. debugging it:
 ```C
 gdb name_of_the_file
@@ -93,6 +108,7 @@ In this last way, the program will stop at the first breakpoint *(please note th
 
 > ***PLEASE NOTE:*** If you don't add breakpoints, you can still stop the program while it's running by typing ```(ctrl) + c```. Gdb will stop your program at whatever line it has just executed. From here you can examine variables and move through your program.
 
+### About breakpoints (and how to resume the program)
 To add a breakpoint:
 ```C
 b*memory_address
@@ -119,7 +135,7 @@ On the other hand you might want:
 - To resume execution at another function of the program:
     - just type ```jump name_of_the_function ```
 
-
+### Examining data with gdb
 To show information about the current state of the program you can use the keyword info, for example:
 - to show the current conent of the registers type ``` info registers ```
 - to show the current variables type ``` info variables ```
@@ -141,30 +157,45 @@ Other commands used to examine data when your program is stopped:
         - type ```bt```, which stands for *backtrace*
 
 
-## Pwning
-Most of the times pur objective is to do a buffer overflow. However, it might be time-consuming to do this by hand. To help us in this
+## Pwntools
+### Basics
+In this course, we aim to corrupt the memory of programs mainly by overflowing buffers. However, since sometimes it's time-consuming to do this by hand we can use a python script to do this for us. This is possible thanks to a python library called pwntools.
 
-# Pwntools
+Firstly, we need to include the library pwntools in our python script:
+```python
+from pwn import *
+```
+
+Generally, then you will have to create a *"tube"* to talk to a process (i.e. connecting the script with the process you want to pwn). This can be achieved by creating a process object just like this:
+```python
+new_obj_name = process(path/name_of_the_process)
+```
+> ***PLEASE NOTE:*** from now on we will call *"new_obj_name"* just *"p"* (which stands for process) for convenience.
+
+Once we have written our python script we can run it from terminal by doing:
+```
+python name_pf_the_script
+```
+
+### Some pwntool's basic functions
+Now that we have a connection between the process and the python script we can use different (pwntool's) functions depending on our aim:
+- To send data
+    ```python
+    p.send(data)              #sends data to the process (as if writing a string in terminal)    
+    p.sendline(line)          #sends data plus a newline to the process (as if writing a string in terminal)  
+    p.sendlineafter("_str_", line)      #sends data to the process (as if writing a string in terminal) only after reading a string specified by _str_
+    ```
+- To receive data
+    ```python
+    msg = p.recvall()          #msg will store all the prints from the execution in terminal of the process
+    msg = p.recv(n)             #as above, but it will receive any number (n) of available bytes
+    msg = p.recvline()          #receive data until a newline is encountered
+    ```
+
+
 
 ```
- GDB ESEMPI ALTRA ROBA DI TRINCAW
- r < a                              /da come input il file a (da usare con cyclic)
- r < $(python -c "print('A'*50)")   /da come input il risultato dello script
- 
- +MANCA TUTTO CHECKSEC DI TRINCAW 
-  pwn checksec nomefile              /simile al comando file ma da piu dettagli sull' eseguibile
- -Outputs di Checksec
-  1- RELRO                          /Relocation Read-Only la tabella GOT non puo essere editata. Vedi es 1_GOT (exit call overlapped)
-  2- CANARY                         /Controllo sul return della funzione chiamata che si accerta che riporti alla funzione precedente
-  3- NX                             /Non-Executable La stack non è eseguibile
-  4- PIE                            /Position Independent Executable Indirizzi shiftati di uno stesso offset comune
- Fonti:                             https://blog.siphos.be/2011/07/high-level-explanation-on-some-binary-executable-security/
- 
- +PWNTOOLS DI TRINCAW
- from pwn import *                                             /importa pwntools in uno script
- p.sendline(_msg_)                                             /scrive una stringa nel terminale
- p.sendlineafter('_str_', _msg_)                               /scrive una stringa nel terminale solo dopo aver letto una certa stringa
- p.recvall()                                                   /salva le stampe del terminale (da assegnare ad una variabile oppure printare)
+  +PWNTOOLS DI TRINCAW
  p.interactive()                                               /permette di interagire con il terminale
  asm(shellcraft.sh())                                          /crea una shell 
  offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
@@ -175,5 +206,12 @@ Most of the times pur objective is to do a buffer overflow. However, it might be
  r(r14=dst, r15=b"flag.txt")                                   /scrive su i registri dati
  r.call("system", [e.symbols["parameters"]])                   /richiama una funzione con parametri custom tramite ROP (aggiunge alla chain da richiamare)
  p.send(b"A" * 8 * 5 + r.chain())                              /invia la chain ROP creata
+ 
+ 
+ 
+  GDB ESEMPI ALTRA ROBA DI TRINCAW
+ r < a                              /da come input il file a (da usare con cyclic)
+ r < $(python -c "print('A'*50)")   /da come input il risultato dello script
+ 
 ``` 
 
