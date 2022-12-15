@@ -12,7 +12,7 @@ Some useful tools for the second part of the Cybersecurity course @UniPd
     - it should already been installed if you have Linux *(on Windows you will need to install it, please note that in this case MinGW distributes a Windows version of it)*
 - Other tools useful for pwning:
     - ***PEDA*** *(i.e. Python Exploit Development Assistance for GDB)* available to download at: https://github.com/longld/peda
-    - ***pwntool*** *(python library)*, available to download at: http://docs.pwntools.com/en/stable/
+    - ***pwntool*** *(python library)*, available to download at: http://docs.pwntools.com/en/stable/ or simply by doing ```pip install pwntools```
 
 > ***PLEASE NOTE:***  Before doing anything it's necessary to change the permissions of the directory we want to work on. We can achieve this with:   ``` chmod -R +x ./ ```
 
@@ -21,6 +21,8 @@ Some useful tools for the second part of the Cybersecurity course @UniPd
 Let's see some commands (available to use on terminal) that might be useful for Reverse Engineering and Pwning:
 - ***./name_of_the_program***
     - to simply run a program in the terminal
+- ***cat ./text_file***
+    - to read the files specified as parameters and display the concatenation of their content
 - ***strings ./name_of_the_program***
     - to display all the strings used inside the program (e.g. if there is a psw or a flag stored it should appear)
 - ***objdump -option ./name_of_the_program***
@@ -62,22 +64,27 @@ Radare2 is very useful for patching *(e.g. we can fill with NOP, invert or remov
 
 Let's see some Radare commands (that we use on the terminal) that help us doing it:
 - To open the file using Radare2 *(-w to enable writing on it)* and launch tha analysis:
-```
-r2 -w name_of_the_file
-aaaa
-```
-> ***PLEASE NOTE:*** it's recommended doing a copy of the file and working with radare on it, rather than the original one
+    ```
+    r2 -w name_of_the_file
+    aaaa
+    ```
+    > ***PLEASE NOTE:*** it's recommended doing a copy of the file and working with radare on it, rather than the original one
 - To move to the start of a function or a specific address:
-```C
-s name_of_the_function
-//or similarly
-s address
-```
+    ```C
+    s name_of_the_function
+    //or similarly
+    s address
+    ```
 - To print the the decompiled function (once you've moved to the corresponding memory address) simply use:
-```
-pdf
-```
-In this way you will be able to see on your left the memory addresses, on the center the bytes that make up the instructions and on the right the instructions themselves.
+    ```
+    pdf
+    ```
+    In this way you will be able to see on your left the memory addresses, on the center the bytes that make up the instructions and on the right the instructions themselves.
+- To disply all the functions and their memory address where they're store we simply use:
+    ```C
+    afl     //which stands for Analyse Function List
+    ```
+
 
 ### Patching with Radare2
 To patch the instruction (once you've moved to the corresponding memory address) you can use:
@@ -156,9 +163,32 @@ Other commands used to examine data when your program is stopped:
    - To show all the calls done until that moment:
         - type ```bt```, which stands for *backtrace*
 
+### Cyclic patterns
+When trying to pwn and, in particular, trying to do a stack overflow, it might be tricky to find the return address from the start of the buffer (that we want to overflow). To help us find it we can create a pattern (cyclic) and insert it into the buffer in order to see what part of the pattern overwrites the return address.
+In this way, we can understand the difference in bytes, i.e. the offset (ret_addr - buff_addr), which is the "garbage"/"padding" we need to put in the buffer to overflow it and reach the start of the return address (where we will put our new address). Basically our input will then be ```garbage_of_length_offset + address_we_want_to_reach```.
+- To create the pattern we can use the command: 
+    ```
+    pattern_create n name_of_the_pattern_file
+    ``` 
+    where:
+    - *n* reppresent the length of the pattern which must be way bigger than the size of the buffer *(e.g. if the buffer size is 128, we can create a pattern long 300)
+    - *name_of_the_pattern_file* rappresent the new file which will be created in the current directoy to save the pattern
+- To run the program using a pattern as input:
+    ```C
+    r < name_of_the_pattern_file  
+    // or similarly 
+    run < name_of_the_pattern_file
+    ```
+    This should cause a segmentation fault and create an errore in the PC address (i.e. the IP, instruction Pointer) which will result invalid and which correspond to a piece of our pattern. 
+- To finally see the offset we can type on the terminal:
+    ```
+    pattern_search
+    ```
+    We look at the registers that contain our pattern, and in particular to the IP/PC one (which name is EIP). It will show the offset we were looking for.
+
 
 ## Pwntools
-### Basics
+### Basics: Processes and Communication
 In this course, we aim to corrupt the memory of programs mainly by overflowing buffers. However, since sometimes it's time-consuming to do this by hand we can use a python script to do this for us. This is possible thanks to a python library called pwntools.
 
 Firstly, we need to include the library pwntools in our python script:
@@ -177,7 +207,7 @@ Once we have written our python script we can run it from terminal by doing:
 python name_pf_the_script
 ```
 
-### Some pwntool's basic functions
+### Sending and receiving data from processes
 Now that we have a connection between the process and the python script we can use different (pwntool's) functions depending on our aim:
 - To send data
     ```python
@@ -185,18 +215,42 @@ Now that we have a connection between the process and the python script we can u
     p.sendline(line)          #sends data plus a newline to the process (as if writing a string in terminal)  
     p.sendlineafter("_str_", line)      #sends data to the process (as if writing a string in terminal) only after reading a string specified by _str_
     ```
+     > ***PLEASE NOTE:*** We can send the data to the process packed as bytes using the syntax ```b'string'``` (or with ```("string").encode('ascii')```) instead of strings, since sometimes there can be some problems with them. 
 - To receive data
     ```python
-    msg = p.recvall()          #msg will store all the prints from the execution in terminal of the process
+    msg = p.recvall()           #msg will store all the prints from the execution in terminal of the process
     msg = p.recv(n)             #as above, but it will receive any number (n) of available bytes
     msg = p.recvline()          #receive data until a newline is encountered
     ```
 
+### Packing
+To pack data *(e.g. from the address in hex 0x... to bytes)* pwntools uses the context global variable (by default little endian) to automatically calculate how the packing should work. This is possible thanks to the function:
+```python
+//if we compile in a 64-bit architecture
+packed_bytes = p64(data_to_pack)
+//or if we compile in a 32-bit architecture
+packed_bytes = p32(data_to_pack)
+```
+> ***PLEASE NOTE:*** p64() returns a bytes-like object *(e.g. b'some_bytes')*, so if you need to add padding to it remember to use b'A' instead of using just 'A'.
+
+> ***PLEASE NOTE:*** It's also possible to unpack bytes by using ```u64(packed_bytes)```, which is the exact opposite of p64().
+
+### Interactive sessions
+We might also want to interact derectly with our process (on the terminal), i.e. we want to use the process in interactive mode to send commands and receive output from the process at runtime.
+We do this using:
+```python
+# exploit goes here
+p.interactive()
+```
+ > ***PLEASE NOTE:***  This is very common when the exercise involves the opening of a shell *(then you can use as a normal shell)*. So in this case remember to use this interactive mode rather than doing a recvall() which will not do anything good (the python script will continue to run and never stop).
 
 
 ```
+GDB 
+ r < $(python -c "print('A'*50)")   /da come input il risultato dello script
+ 
   +PWNTOOLS DI TRINCAW
- p.interactive()                                               /permette di interagire con il terminale
+ 
  asm(shellcraft.sh())                                          /crea una shell 
  offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
  c.binary.got["exit"]                                          /ottiene l'indirizzo della funzione exit in got
@@ -206,12 +260,6 @@ Now that we have a connection between the process and the python script we can u
  r(r14=dst, r15=b"flag.txt")                                   /scrive su i registri dati
  r.call("system", [e.symbols["parameters"]])                   /richiama una funzione con parametri custom tramite ROP (aggiunge alla chain da richiamare)
  p.send(b"A" * 8 * 5 + r.chain())                              /invia la chain ROP creata
- 
- 
- 
-  GDB ESEMPI ALTRA ROBA DI TRINCAW
- r < a                              /da come input il file a (da usare con cyclic)
- r < $(python -c "print('A'*50)")   /da come input il risultato dello script
  
 ``` 
 
