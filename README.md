@@ -182,9 +182,11 @@ In this way, we can understand the difference in bytes, i.e. the offset (ret_add
     This should cause a segmentation fault and create an errore in the PC address (i.e. the IP, instruction Pointer) which will result invalid and which correspond to a piece of our pattern. 
 - To finally see the offset we can type on the terminal:
     ```
-    pattern_search
+    pattern search
     ```
     We look at the registers that contain our pattern, and in particular to the IP/PC one (which name is EIP). It will show the offset we were looking for.
+
+> ***PLEASE NOTE:*** If the program crash but there are no information about the IP address not being valid, we can search for the pattern code that cause the crash by looking at the character displayed in the stack (the upper frame, without considering any b) and then search them with ```pattern search stack_chars```. Then we look at the register containing the pattern, and in particular at the RSP (the stack pointer), and it will show the offset we were looking for.
 
 
 ## Pwntools
@@ -244,9 +246,22 @@ p.interactive()
 ```
  > ***PLEASE NOTE:***  This is very common when the exercise involves the opening of a shell *(then you can use as a normal shell)*. So in this case remember to use this interactive mode rather than doing a recvall() which will not do anything good (the python script will continue to run and never stop).
 
+### ELF
+ELF is a class of pwntools that it's very useful because it allows use to retrieve some information from the ELF file (i.e. the executable in Linux) without having to use debuggers, disassembler etc...
+Whatever you need to do with this class, firstly we need  to create an elf object (which basiacally represent the program):
+```python
+name_of_elf_object = ELF('path/name_of_the_program')
+```
+Some usefull stuff we can do is:
+- find the address (in hex) of a function:
+  ```python
+  address = name_of_elf_object.symbols['name_of_the_function']
+  ```
+
 
 ```
 GDB 
+python code included in gbd
  r < $(python -c "print('A'*50)")   /da come input il risultato dello script
  
   +PWNTOOLS DI TRINCAW
