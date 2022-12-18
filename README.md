@@ -186,7 +186,7 @@ In this way, we can understand the difference in bytes, i.e. the offset (ret_add
     ```
     We look at the registers that contain our pattern, and in particular to the IP/PC one (which name is EIP). It will show the offset we were looking for.
 
-> ***PLEASE NOTE:*** If the program crash but there are no information about the IP address not being valid, we can search for the pattern code that cause the crash by looking at the character displayed in the stack (the upper frame, without considering any b) and then search them with ```pattern search stack_chars```. Then we look at the register containing the pattern, and in particular at the RSP (the stack pointer), and it will show the offset we were looking for.
+> ***PLEASE NOTE:*** If the program crash but there are no information about the IP address not being valid, we can search for the pattern code that cause the crash by looking at the character displayed in the stack (the upper frame), usually the first 8 chars are enough, and then search them with ```pattern search stack_chars```. Then we look at the register containing the pattern, and in particular at the RSP/ESP (the stack pointer), and it will show the offset we were looking for.
 
 
 ## Pwntools
@@ -258,8 +258,28 @@ Some usefull stuff we can do is:
   address = name_of_elf_object.symbols['name_of_the_function']
   ```
 
+> ***FOCUS: HOW TO FIND A SHELLCODE*** If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell).* This shellcode can be find at https://shell-storm.org/shellcode/index.html where there are different shellcodes based on architecture and features. You can search manually or do a simple python program to search it for you. The code of this program can be e.g.:
+> ```python
+> import requests
+> 
+> keyword1 = "bash"       #we want a bash shell
+> keyword2 = "execve"     #we want a shell that is able to execute a program referred to by pathname
+> shellcodes = "http://shell-storm.org/api/?s=" + keyword1 + "*" + keyword2           #filter the shellcodes based on the keywords
+>
+> response = requests.get(shellcodes)
+> possible_shellcodes = response.content      #get the possible shellcodes (filtered before)
+> print(possible_shellcodes)      #prints the name and the link where to find the suitable shellcodes
+> ```
+> Then you can search for the most suitable between the choices in the print (please make sure to look at the correct architecture and at the bytes needed for the shellcode).
+
+
 
 ```
+ROP?? Vedi segnalibro + roba stack a parte 
+(secondo me metterei anche la robe della shell qui tipo)
+
+ASM SMALL GUIDE ???
+
 GDB 
 python code included in gbd
  r < $(python -c "print('A'*50)")   /da come input il risultato dello script
