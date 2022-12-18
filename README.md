@@ -30,7 +30,7 @@ Let's see some commands (available to use on terminal) that might be useful for 
 - ***checksec ./name_of_the_program***
     - to display details (+ security properties) regarding the executable file *(e.g. architecture 32bit/64bit so we know the size of the registers)*. In particular, it outputs:
         1. the architecture (32-64bit + little/big endian)
-        2. RELRO, which stands for *Relocation Read-Only*, and if enabled it makes the GOT *(i.e. the "Global Offset Table" of ELF executable files used to resolve functions dynamically)* read-only, which prevents some form of relocation attacks.
+        2. RELRO, which stands for *Relocation Read-Only*, and if enabled (completely) it makes the GOT *(i.e. the "Global Offset Table" of ELF executable files used to resolve functions dynamically)* read-only, which prevents some form of relocation attacks (GOT hijacking). If enabled partially, it makes only the global variables read-only.
         3. CANARY, they are special known values placed  between a buffer and control data on the stack to monitor buffer overflows. In this way, they can control that the function return to the real previous function
         4. NX, which stands for *Non-Executable*, it's often enabled by default and in that case the stack is non-executable (basically NX enabled can mark certain areas of memory as non-executable). This is done because often buffer-overflow exploits put code on the stack and then try to execute it. However, making this writable area non-executable can prevent such attacks.
         5. PIE, which stands for *Position Independent Executable*,  it's code that is placed somewhere in memory for execution regardless of its absolute address (basically the addresses are shifted of a (common) offset. 
@@ -257,6 +257,11 @@ Some usefull stuff we can do is:
   ```python
   address = name_of_elf_object.symbols['name_of_the_function']
   ```
+
+
+
+
+
 
 > ***FOCUS: HOW TO FIND A SHELLCODE*** If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell).* This shellcode can be find at https://shell-storm.org/shellcode/index.html where there are different shellcodes based on architecture and features. You can search manually or do a simple python program to search it for you. The code of this program can be e.g.:
 > ```python
