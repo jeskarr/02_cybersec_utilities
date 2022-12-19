@@ -311,7 +311,11 @@ Some usefull stuff we can do is:
   name_of_elf_object.address = offset       #it relocates all addresses shifting them of a the offset
   ```
   (we use this especially to [bypass PIE](#Bypassing-PIE))
- 
+- retrieve the GOT (absolute/real) address of a function by doing:
+    ```python
+    function_gotAdd = elf.got["name_of_the_function"]
+    ```
+    (we can use this especially to [redirect execution overwriting GOT entries](#Exploiting-GOT-vulnerabilties-to-redirect-execution))
  
  
 
@@ -392,29 +396,17 @@ So, when the PLT gets called, it reads the GOT address and redirects execution t
 
 The GOT address contains addresses of functions in libraries, and the GOT is within the binary, so it will always be a constant offset away from the base. Therefore, if PIE is disabled or you somehow leak the binary base (see [bypassing PIE](#Bypassing-PIE)), you know the exact address (of the GOT and so the address...) that contains a library's function's address.
 You can retrieve this real/absolute address 3 different methods:
-- using Radare2
--   ```
-specify to session radare this stuff
-in particular (after aaaa and r2 opening even without write mode), do a afl 
-1st address of the function (to know the new function where we want to jump where it is)
-2nd colomn: The number of basic blocks in the function
-3rd column: The size of the function (in bytes)
-4th column: The function's name
-now we use the 
-pd n @ offset: Print n opcodes/instruction forward disassembled, where n is the number of basic blocks in the funcion and offset is the function that we're gonna modify with the function we want to.          (same as doing pdf @ offset)
-the relocated address is given by the address at the end after the jmp to the ()word of relocation.
+- using Radare2:
+    - by doing ```pdf @ name_of_the_function``` or equivalently ```pd n @ name_of_the_function``` *(n is the number of asm instructions to display)* which will print the function disassembled and with it also the relocated address (just look at the end after the jump to the ...word of the reloc)
 - using the objdump command
- ```
-ou can see where the GOT entry for a function is by running:
-objdump --dynamic-reloc ./name_of_the_file
-The address of the real function (or the rtl linking function) is directly
-at the printed address
-```
--using pwntools
-```
-to add to ELF stuff
-puts_got = elf.got['puts']is the address of the relocation (i.e. is the same as looking for the relocation address in pd .... with radare2) while we can use elf.symbols to get the address of the function that we want to call instead of the puts
-```
+    - in particular by doing ```objdump --dynamic-reloc ./name_of_the_file``` which will show the real address of all the functions
+- using pwntools
+    - in particular by doing ```function_gotAdd = elf.got["name_of_the_function"]``` *(where elf is the object created with the context.binary setted)*, and in this case function_gotAdd* will store the real GOT address
+    
+You can retrieve the address where to jump instead of the GOT address found above:
+- using ```afl``` command in Radare2 which will show the address of the function
+- using pwntools:
+    - we can use the ```functionAdd = elf.symbols["name_of_the_function"]```, and in this case *functionAdd* will store the address of the function
 
 
 ### Bypassing PIE
