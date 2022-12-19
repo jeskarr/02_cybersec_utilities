@@ -273,7 +273,10 @@ Some usefull stuff we can do is:
 
 
 
-## Consequences: some types of attacks
+## Some types of attacks
+### Changing ASM instructions (or bytes)
+It's possible to change an ASM instruction or bytes by patching the program (see [Ida patching](#Patching-with-Ida) or [Radare2 patching](#Patching-with-Radare2)). This type of attack is especially used to reverse a jmp instruction *(e.g. from JNZ to JZ)* or to avoid an istruction to be executed by replacing it with NOPs.
+
 ### Redirect execution
 When a function calls another function, it:
 - pushes a return pointer (EIP) to the stack so the called function knows where to return
@@ -298,27 +301,25 @@ p.sendline(payload)
 # p.interactive()
 ```
  
-> ***PLEASE NOTE:*** In real exploits, it's not particularly likely that you will have a suitable function lying around, so the shellcode is a way to run your own instructions, giving you the ability to run arbitrary commands on the system. So instead of jumping to a funtion we can for example jump to the address of the start of the buffer, so if we input some code in the buffer it will be executed. Here we can put some code that opens a shell (see [how to find a shellcode](#Some-things-to-remember)).
+> ***PLEASE NOTE:*** In real exploits, it's not particularly likely that you will have a suitable function lying around, so the shellcode is a way to run your own instructions, giving you the ability to run arbitrary commands on the system. So instead of jumping to a funtion we can for example jump to the address of the start of the buffer, so if we input some code in the buffer it will be executed. Here we can put some code that opens a shell (see below how to do find it).
 
-
-### Some things to remember
-- ***HOW TO FIND A SHELLCODE***
- 
-    - If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell, see [how to redirect execution](#Redirect-execution)).* This shellcode can be find at https://shell-storm.org/shellcode/index.html where there are different shellcodes based on architecture and features. You can search manually or do a simple python program to search it for you. The code of this program can be e.g.:
-        ```python
-        import requests
-
-        keyword1 = "bash"       #we want a bash shell
-        keyword2 = "execve"     #we want a shell that is able to execute a program referred to by pathname
-        shellcodes = "http://shell-storm.org/api/?s=" + keyword1 + "*" + keyword2           #filter the shellcodes based on the keywords
-
-        response = requests.get(shellcodes)
-        possible_shellcodes = response.content      #get the possible shellcodes (filtered before)
-        print(possible_shellcodes)      #prints the name and the link where to find the suitable shellcodes
-        ```
-        Then you can search for the most suitable between the choices in the print (please make sure to look at the correct architecture and at the bytes needed for the shellcode).
-    
-    - Alternatively, you can create a shell using [pwntools shellcraft command](#Interactive-sessions)
+> ***FOCUS: HOW TO FIND A SHELLCODE***
+>    If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell, see [how to redirect execution](#Redirect-execution)).* 
+>    - This shellcode can be find at https://shell-storm.org/shellcode/index.html where there are different shellcodes based on architecture and features. You can search manually or do a simple python program to search it for you. The code of this program can be e.g.:
+>        ```python
+>        import requests
+>
+>        keyword1 = "bash"       #we want a bash shell
+>        keyword2 = "execve"     #we want a shell that is able to execute a program referred to by pathname
+>        shellcodes = "http://shell-storm.org/api/?s=" + keyword1 + "*" + keyword2           #filter the shellcodes based on the keywords
+>
+>        response = requests.get(shellcodes)
+>        possible_shellcodes = response.content      #get the possible shellcodes (filtered before)
+>        print(possible_shellcodes)      #prints the name and the link where to find the suitable shellcodes
+>        ```
+>        Then you can search for the most suitable between the choices in the print (please make sure to look at the correct architecture and at the bytes needed for the shellcode).
+>    
+>    - Alternatively, you can create a shell using [pwntools shellcraft command](#Interactive-sessions)
 
 
 
