@@ -37,7 +37,7 @@ p.sendline(payload)
 > ***PLEASE NOTE:*** In real exploits, it's not particularly likely that you will have a suitable function lying around, so the shellcode is a way to run your own instructions, giving you the ability to run arbitrary commands on the system. So instead of jumping to a funtion we can for example jump to the address of the start of the buffer, so if we input some code in the buffer it will be executed. Here we can put some code that opens a shell (see below how to do find it).
 
 ### Focus: How to find a shellcode
-If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell, see [how to redirect execution](#Redirect-execution)).* 
+If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell, see [how to redirect execution](#Buffer-overflows-to-redirect-execution)).* 
   - This shellcode can be find at https://shell-storm.org/shellcode/index.html where there are different shellcodes based on architecture and features. You can search manually or do a simple python program to search it for you. The code of this program can be e.g.:
       ```python
       import requests
@@ -116,4 +116,4 @@ elf.address = main - elf.symbols["main"]
 ```
 > ***PLEASE NOTE:*** Before this remember to set the context.binary and create the elf object (that we've called *elf* here) with the context.binary.path.
 
-Now that we know this we can redirect the execution by exploiting the vulnerability of the GOT as usual (see [exploiting GOT](Exploiting-GOT-vulnerabilities-to-redirect-execution)).
+Now that we know this we can redirect the execution by exploiting the vulnerability of the GOT as usual (see [exploiting GOT](#Exploiting-GOT-vulnerabilities-to-redirect-execution)).
