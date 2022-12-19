@@ -221,7 +221,7 @@ which will set all appropriate values automatically (by absorbing all settings f
 > ```python
 > name_of_elf_object = context.binary
 > ``` 
-> is the same of doing (as seen in the [elf session](#ELF):
+> is the same of doing (as seen in the [elf session](#ELF)):
 > ```python
 > name_of_elf_object = ELF('path/name_of_the_program')
 > ```
