@@ -56,7 +56,7 @@ If you'd like to do a shellcode attack you need to input in the buffer some code
 
 
 
-## Exploiting GOT vulnerabilties to redirect execution
+## Exploiting GOT vulnerabilities to redirect execution
 ### How dynamic linking works and why we need to exploit GOT to redirect execution
 There’s two types of binaries on any system: statically linked and dynamically linked. Statically linked binaries are self-contained, containing all of the code necessary for them to run within the single file, and do not depend on any external libraries. Dynamically linked binaries (which are the default when you run gcc and most other compilers) do not include a lot of functions, but rely on system libraries to provide a portion of the functionality (to reduce substancially the size of the program). 
 
