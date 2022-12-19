@@ -3,7 +3,7 @@
 In this file we will see how can we use the tools (seen in [TOOLKIT](./TOOLKIT.md)) to exploit some vulnerabilities of the program.
 
 ## Changing ASM instructions (or bytes)
-It's possible to change an ASM instruction or bytes by patching the program (see [Ida patching](#Patching-with-Ida) or [Radare2 patching](#Patching-with-Radare2)). This type of attack is especially used to reverse a jmp instruction *(e.g. from JNZ to JZ)* or to avoid an istruction to be executed by replacing it with NOPs.
+It's possible to change an ASM instruction or bytes by patching the program (see [Ida patching](./TOOLKIT.md#Patching-with-Ida) or [Radare2 patching](./TOOLKIT.md#Patching-with-Radare2)). This type of attack is especially used to reverse a jmp instruction *(e.g. from JNZ to JZ)* or to avoid an istruction to be executed by replacing it with NOPs.
 
 
 
@@ -12,12 +12,13 @@ It's possible to change an ASM instruction or bytes by patching the program (see
 When a function calls another function, it:
 - pushes a return pointer (EIP) to the stack so the called function knows where to return
 - when the called function finishes execution, it pops it off the stack again
+
 Because this value is saved on the stack, just like our local variables, if we write more characters than the program expects, we can overwrite the value and redirect code execution to wherever we wish.
 
 ### What we need to do
 To redirect the execution (i.e. changing where we return):
-- first we need to find the padding until we begin to overwrite the return pointer (EIP)  -> use [cyclic patterns](#Cyclic-patterns)
-- then we need to find what value we want to overwrite EIP to (i.e. the address of the function we want to execute) -> use [ELF .symbols function](#ELF) or use [afl command in Radare2](#Radare2-basics)
+- first we need to find the padding until we begin to overwrite the return pointer (EIP)  -> use [cyclic patterns](./TOOLKIT.md#Cyclic-patterns)
+- then we need to find what value we want to overwrite EIP to (i.e. the address of the function we want to execute) -> use [ELF .symbols function](./TOOLKIT.md#ELF) or use [afl command in Radare2](./TOOLKIT.md#Radare2-basics)
  
 Basically the code in python will loke like this:
 ```python
@@ -36,7 +37,7 @@ p.sendline(payload)
 > ***PLEASE NOTE:*** In real exploits, it's not particularly likely that you will have a suitable function lying around, so the shellcode is a way to run your own instructions, giving you the ability to run arbitrary commands on the system. So instead of jumping to a funtion we can for example jump to the address of the start of the buffer, so if we input some code in the buffer it will be executed. Here we can put some code that opens a shell (see below how to do find it).
 
 ### FOCUS: HOW TO FIND A SHELLCODE
-If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell, see [how to redirect execution](#Redirect-execution)).* 
+If you'd like to do a shellcode attack you need to input in the buffer some code that opens a shell *(i.e. usually the vulnerability is a gets(buffer) where you can overflow the buffer and put as return address the start of the buffer where you have the code of the shell, see [how to redirect execution](./TOOLKIT.md#Redirect-execution)).* 
   - This shellcode can be find at https://shell-storm.org/shellcode/index.html where there are different shellcodes based on architecture and features. You can search manually or do a simple python program to search it for you. The code of this program can be e.g.:
       ```python
       import requests
@@ -51,7 +52,7 @@ If you'd like to do a shellcode attack you need to input in the buffer some code
       ```
       Then you can search for the most suitable between the choices in the print (please make sure to look at the correct architecture and at the bytes needed for the shellcode).
 
-  - Alternatively, you can create a shell using [pwntools shellcraft command](#Interactive-sessions)
+  - Alternatively, you can create a shell using [pwntools shellcraft command](./TOOLKIT.md#Interactive-sessions)
 
 
 
@@ -99,7 +100,7 @@ You can retrieve the address where to jump instead of the GOT address found abov
 
 
 ### Bypassing PIE
-PIE (*Position Independent Executable*) if enabled (you can check it using [checksec](#Some-useful-commands)) means that every time you run the file it (meaning the binary) gets loaded into a different memory address. This means you cannot hardcode values such as function addressess without finding out where they are, i.e. if PIE is active it means the .symbols[] won't recover the correct address (it will recover the address offsetted which means every time you run it will be different).
+PIE (*Position Independent Executable*) if enabled (you can check it using [checksec](./TOOLKIT.md#Some-useful-commands)) means that every time you run the file it (meaning the binary) gets loaded into a different memory address. This means you cannot hardcode values such as function addressess without finding out where they are, i.e. if PIE is active it means the .symbols[] won't recover the correct address (it will recover the address offsetted which means every time you run it will be different).
 
 However, since PIE executables are based around relative rather than absolute addresses, meaning that while the locations in memory are random, the offsets between different parts of the binary remain constant. 
 
