@@ -28,7 +28,7 @@ Let's see some commands (available to use on terminal) that might be useful for 
 - ***objdump -option ./name_of_the_program***
     - to display information about one or more object files. The options control what particular information to display, we can for example choose the option:
         - ***-d*** (--disassemble) which display the ASM code of the input files.
-        - ***--dynamic-reloc*** to see where the GOT entry for a function is, i.e. it prints the address of the relocation
+        - ***--dynamic-reloc*** to see where the GOT entry for a function is, i.e. it prints the real address of the functions (and if the function was not already used the address of the linker)
 - ***checksec ./name_of_the_program***
     - to display details (+ security properties) regarding the executable file *(e.g. architecture 32bit/64bit so we know the size of the registers)*. In particular, it outputs:
         1. the architecture (32-64bit + little/big endian)
@@ -210,6 +210,30 @@ new_obj_name = process(path/name_of_the_process)
 ```
 > ***PLEASE NOTE:*** from now on we will call *"new_obj_name"* just *"p"* (which stands for process) for convenience.
 
+
+Since many settings in pwntools (such as selected target operating system, architecture, and bit-width) are controlled via the global variable *context*, it may be needed to set it correctly (for example in order to have a working shellcode). The recommended methos is to use:
+```python
+context.binary = "./name_of_the_program"
+```
+which will set all appropriate values automatically (by absorbing all settings from an ELF file)
+
+> ***PLEASE NOTE:***  It's important to know that ```context.binary``` is an ELF object and actually we can say that:
+> ```python
+> name_of_elf_object = context.binary
+> ``` 
+> is the same of doing (as seen in the [elf session](#ELF):
+> ```python
+> name_of_elf_object = ELF('path/name_of_the_program')
+> ```
+> Basically is the ELF of the binary program given before (i.e. *./name_of_the_program*).
+
+> ***PLEASE NOTE:*** If we have setted the context.binary, to talk to the process we can do instead of doing ```process(path/name_of_the_process)``` we can do:
+> ```python
+> p = process(context.binary.path)
+> #or simply just
+> p = process()     #it's assumed to use that process context binary
+> ```
+
 Once we have written our python script we can run it from terminal by doing:
 ```
 python name_of_the_script
@@ -222,6 +246,7 @@ Now that we have a connection between the process and the python script we can u
     p.send(data)              #sends data to the process (as if writing a string in terminal)    
     p.sendline(line)          #sends data plus a newline to the process (as if writing a string in terminal)  
     p.sendlineafter("_str_", line)      #sends data to the process (as if writing a string in terminal) only after reading a string specified by _str_ 
+    p.pack(data_to_pack)       #packs into a word-size an arbitrary-sized integer and sends it to the process
     ```
      > ***PLEASE NOTE:*** We can send the data to the process packed as bytes using the syntax ```b'string'``` (or with ```("string").encode('ascii')```) instead of strings, since sometimes there can be some problems with them. 
 - To receive data
@@ -229,19 +254,30 @@ Now that we have a connection between the process and the python script we can u
     msg = p.recvall()           #msg will store all the prints from the execution in terminal of the process
     msg = p.recv(n)             #as above, but it will receive any number (n) of available bytes
     msg = p.recvline()          #receive data until a newline is encountered
+    msg = unpack()              #receives and unpacks a word-size integer
     ```
+
+### Logging 
+Logging is a very useful feature of pwntools that lets you know where in your code you've gotten up to, basically it's used to print stuff in the terminal about what you're doing when you're actually executing the python script. You can log in different ways for different types of data.
+- log.info(text)
+    - used to print ```[*] text```, meaning informative data
+- log.success(text)
+    - used to print ```[+] text```, meaning a message of success
+- log.error(text)
+    - used to print ```[-] text```, meaning a message of error/fail
 
 ### Packing
 To pack data *(e.g. from the address in hex 0x... to bytes)* pwntools uses the *context* global variable (by default little endian) to automatically calculate how the packing should work. This is possible thanks to the function:
 ```python
-//if we compile in a 64-bit architecture
+//if we compile in a 64-bit architecture (i.e. packed integers have a size of 64 bit)
 packed_bytes = p64(data_to_pack)
-//or if we compile in a 32-bit architecture
+//or if we compile in a 32-bit architecture (i.e. packed integers have a size of 32 bit)
 packed_bytes = p32(data_to_pack)
 ```
 > ***PLEASE NOTE:*** p64() returns a bytes-like object *(e.g. b'some_bytes')*, so if you need to add padding to it remember to use b'A' instead of using just 'A'.
 
 > ***PLEASE NOTE:*** It's also possible to unpack bytes by using ```u64(packed_bytes)```, which is the exact opposite of p64().
+
 
 ### Interactive sessions
 We might also want to interact derectly with our process (on the terminal), i.e. we want to use the process in interactive mode to send commands and receive output from the process at runtime.
@@ -256,7 +292,7 @@ To create a shell using pwntools we can simply do:
 ```python
 shellcode = asm(shellcraft.sh())
 ```
-Then if we are able to inject this code to the program and execute it (see [Redirect execution](#Redirect-execution)) we can interact with this shell using the command seen before.
+Then if we are able to inject this code to the program and execute it (see [Redirect execution](#Buffer-overflows-to-redirect-execution)) we can interact with this shell using the command seen before.
 > ***PLEASE NOTE:*** In order for the shellcode to be correct, you need to set context.binary (see [ELF session](#ELF))
 
 ### ELF
@@ -270,14 +306,20 @@ Some usefull stuff we can do is:
   ```python
   address = name_of_elf_object.symbols['name_of_the_function']
   ```
-
-
+- retrieve the base address of ELF file which is given by ```name_of_elf_object.address```, but also update it in order to automatically update all the function and symbols addresses for you simply by doing:
+  ```python
+  name_of_elf_object.address = offset       #it relocates all addresses shifting them of a the offset
+  ```
+  (we use this especially to [bypass PIE](#Bypassing-PIE))
+ 
+ 
+ 
 
 ## Some types of attacks
 ### Changing ASM instructions (or bytes)
 It's possible to change an ASM instruction or bytes by patching the program (see [Ida patching](#Patching-with-Ida) or [Radare2 patching](#Patching-with-Radare2)). This type of attack is especially used to reverse a jmp instruction *(e.g. from JNZ to JZ)* or to avoid an istruction to be executed by replacing it with NOPs.
 
-### Redirect execution
+### Buffer overflows to redirect execution
 When a function calls another function, it:
 - pushes a return pointer (EIP) to the stack so the called function knows where to return
 - when the called function finishes execution, it pops it off the stack again
@@ -321,17 +363,38 @@ p.sendline(payload)
 >    
 >    - Alternatively, you can create a shell using [pwntools shellcraft command](#Interactive-sessions)
 
+### Exploiting GOT vulnerabilties to redirect execution
+There’s two types of binaries on any system: statically linked and dynamically linked. Statically linked binaries are self-contained, containing all of the code necessary for them to run within the single file, and do not depend on any external libraries. Dynamically linked binaries (which are the default when you run gcc and most other compilers) do not include a lot of functions, but rely on system libraries to provide a portion of the functionality (to reduce substancially the size of the program). 
 
+*For example, when your binary uses puts, the actual implementation of puts is part of the system C library. This means each ELF file will not carry their own version of puts compiled within it - it will instead dynamically link to the puts of the system it is on.*
 
+> ***PLEASE NOTE:*** You may think that when libraries are on a new system, then it's just encessary to replace function calls (to these libraries) with hardcoded addresses; but the problem with this is that it would require the libraries to have a constant base address, i.e. be loaded in the same area of memory every time it's run. However, this is most of the time not true since modern systems use ASLR *(Address Space Layout Randomization )* which means libraries are loaded at different locations on each program invocation, which is possible only thanks to dynamic linking (these addresses need to be resolved every time the binary is run and to do so is rather impossible with hardcoding addresses).
 
+Consequently, a strategy called *"Relocation"* was developed to allow looking up all of these addresses when the program was run and providing a mechanism to call these functions from libraries. The hard work of doing this is done by the PLT and the GOT which are sections within an ELF file that deal with the dynamic linking and specifically they take care of locating these *(dynamically-linked)* functions (since the program need to know the address of the functions to call them).
 
+***The relocation: how PLT and GOT work***
+PLT *(Procedure Linkage Table)* and GOT *(Global Offset Table)* work together to perform linking.
+Basically what happens is that when the program calls one of the (library's) functon it's actually calling the address of the PLT corresponding to that function which they actually make another indirect call to the correspondent address of the GOT.
 
+*For example: When you call puts() in C and compile it as an ELF executable, it is not actually puts() - instead, it gets compiled as puts@plt (you can check it out in GDB). This happens because it doesn't know where puts actually is, so it jumps to the PLT entry of puts instead. From here, puts@plt does some very specific things:*
+- *If there is a GOT entry for puts, it jumps to the address stored there. *
+- *If there isn't a GOT entry, it will resolve it and jump there*
 
-```
-### Bypassing ASLR (Address Space Layout Randomisation)
+> ***PLEASE NOTE:*** Since calling the PLT address of a function is equivalent to calling the function itself if we have a PLT entry for a desirable library function we can just redirect execution (normally) to its PLT entry and it will be the equivalent of calling the function directly
 
-GOT thing that allows a c program to call libc libraries and sereve as a jumping point for the porgram (we can try to hijack it especially if aslr is enabled because there things stay constant). if we modify the jumping point we can make the program execute code at a different address than intended.
-to extract the got address (offset in the table) of a function (of the porgram) we can use radare2:
+The GOT is basically a massive table of addresses (every library function used by the program has an entry there). These addresses are the actual (real, absolute) locations in memory of the library functions. 
+
+So, when the PLT gets called, it reads the GOT address and redirects execution there. If the address is empty, it coordinates with the ld.so (also called the dynamic linker/loader) to get the function address and stores it in the GOT.
+
+***Overwriting a GOT entry***
+
+> ***PLEASE NOTE:***  GOT thing that allows a c program to call libc libraries and serve as a jumping point for the program. Therefore, we can try to hijack it, especially if ASLR is enabled, because it stays constant (the address of a GOT entry is only fixed per binary, so if two systems have the same binary running, then the GOT entry is always at the same address). This means if we modify the jumping point we can make the program execute code at a different address than intended.
+
+The GOT address contains addresses of functions in libraries, and the GOT is within the binary, so it will always be a constant offset away from the base. Therefore, if PIE is disabled or you somehow leak the binary base (see [bypassing PIE](#Bypassing-PIE)), you know the exact address (of the GOT and so the address...) that contains a library's function's address.
+You can retrieve this real/absolute address 3 different methods:
+- using Radare2
+-   ```
+specify to session radare this stuff
 in particular (after aaaa and r2 opening even without write mode), do a afl 
 1st address of the function (to know the new function where we want to jump where it is)
 2nd colomn: The number of basic blocks in the function
@@ -340,113 +403,51 @@ in particular (after aaaa and r2 opening even without write mode), do a afl
 now we use the 
 pd n @ offset: Print n opcodes/instruction forward disassembled, where n is the number of basic blocks in the funcion and offset is the function that we're gonna modify with the function we want to.          (same as doing pdf @ offset)
 the relocated address is given by the address at the end after the jmp to the ()word of relocation.
-
-
-So what is all of this nonsense about? Well, there’s two types of binaries on any system: statically linked and dynamically linked. Statically linked binaries are self-contained, containing all of the code necessary for them to run within the single file, and do not depend on any external libraries. Dynamically linked binaries (which are the default when you run gcc and most other compilers) do not include a lot of functions, but rely on system libraries to provide a portion of the functionality. For example, when your binary uses printf to print some data, the actual implementation of printf is part of the system C library.
-In order to locate these functions, your program needs to know the address of printf to call it. While this could be written into the raw binary at compile time, there’s some problems with that strategy:
-
-    Each time the library changes, the addresses of the functions within the library change, when libc is upgraded, you’d need to rebuild every binary on your system. While this might appeal to Gentoo users, the rest of us would find it an upgrade challenge to replace every binary every time libc received an update.
-    
-    Modern systems using ASLR load libraries at different locations on each program invocation. Hardcoding addresses would render this impossible.
-
-Consequently, a strategy was developed to allow looking up all of these addresses when the program was run and providing a mechanism to call these functions from libraries. This is known as relocation, and the hard work of doing this at runtime is performed by the linker (actually run before any code)
-
-.got
-    This is the GOT, or Global Offset Table. This is the actual table of offsets as filled in by the linker for external symbols.
-.plt
-    This is the PLT, or Procedure Linkage Table. These are stubs that look up the addresses in the .got.plt section, and either jump to the right address, or trigger the code in the linker to look up the address. (If the address has not been filled in to .got.plt yet.)
-    
-On the other hand, the .got.plt section is basically a giant array of function pointers! Maybe we could overwrite one of these and control execution from there. Essentially, any memory corruption primitive that will let you write to an arbitrary (attacker-controlled) address will allow you to overwrite a GOT entry.
-or you can use*****
-
-
-Every library function used by the program
-has an entry there that contains an address where the real function is located.
-This is done to allow easy relocation of libraries within the process memory
-instead of using hardcoded addresses. Before the program has used the
-function the first time the entry contains an address of the run-time-linker
-(rtl). If the function is called by the program the control is passed to the rtl
-and the functions real address is resolved and inserted into the GOT. Every
-call to that function passes the control directly to it and the rtl is not called
-anymore for this function. 
-
-By overwriting a GOT entry for a function the program will use after
-the format string vulnerability has been exploited we can seize control and
-can jump to any executeable address. This unfortunately means that any
-stack based protections, which perform checks on the return address will
-fail.
-The big advantage we gain from overwriting a GOT entry is its indepen-
-dance to environment variables (such as the stack) and dynamic memory
-allocation (heap). The address of a GOT entry is only fixed per binary, so
-if two systems have the same binary running, then the GOT entry is always
-at the same address.
-
-
-PIE is a precondition to enable address space layout randomization (ASLR). ASLR is a security feature where the kernel loads the binary and dependencies into a random location of virtual memory each time it's run.
-
-
-*****
+- using the objdump command
+ ```
 ou can see where the GOT entry for a function is by running:
 objdump --dynamic-reloc ./name_of_the_file
 The address of the real function (or the rtl linking function) is directly
 at the printed address
-
-
-
-per logging and context guarda il segnalibro quello del rop pwntools
-
-Many settings in pwntools are controlled via the global variable context, such as the selected target operating system, architecture, and bit-width.
-
-In general, exploits will start with something like:
-
-from pwn import *
-context.arch = 'amd64'
-
-Which sets up everything in the exploit for exploiting a 64-bit Intel binary.
-
-The recommended method is to use context.binary to automagically set all of the appropriate values.
-
-from pwn import *
-context.binary = './challenge-binary'       Absorb settings from an ELF file
-
-context.binary is an ELF object (e.g. is the elf of the binary given before, so elf = context.binary is just like name_of_elf_object = ELF('path/name_of_the_program') but it actually makes a copy of binary)
-
-process parameter can have context.binary.path  (we need os for this) instead of ./name
-In order for the shellcode to be correct, we're going to set context.binary to our binary; this grabs stuff like the arch, OS and bits and enables pwntools to provide us with working shellcode.
-We can use just process() because once context.binary is set it is assumed to use that process
-
-Now we want to send a payload that leaks the real address of puts. As mentioned before, calling the PLT entry of a function is the same as calling the function itself; if we point the parameter to the GOT entry, it'll print out it's actual location. This is because in C string arguments for functions actually take a pointer to where the string can be found, so pointing it to the GOT entry (which we know the location of) will print it out.
-
-
+```
+-using pwntools
+```
+to add to ELF stuff
 puts_got = elf.got['puts']is the address of the relocation (i.e. is the same as looking for the relocation address in pd .... with radare2) while we can use elf.symbols to get the address of the function that we want to call instead of the puts
-
-
-Manipulating integers
-
-    pack(int) - Sends a word-size packed integer
-    unpack() - Receives and unpacks a word-size integer
-
-PIE 
-the base address of ELF files i.e name_elf_file.address     Simply setting elf.address will automatically update all the function and symbols addresses for you,
-
-
-PIE stands for Position Independent Executable, which means that every time you run the file it gets loaded into a different memory address. This means you cannot hardcode values such as function addresses and gadget locations without finding out where they are.
-PIE executables are based around relative rather than absolute addresses, meaning that while the locations in memory are fairly random the offsets between different parts of the binary remain constant. For example, if you know that the function main is located 0x128 bytes in memory after the base address of the binary, and you somehow find the location of main, you can simply subtract 0x128 from this to get the base address and from the addresses of everything else.
-Due to the way PIE randomisation works, the base address of a PIE executable will always end in the hexadecimal characters 000. This is because pages are the things being randomised in memory, which have a standard size of 0x1000
-
-So, all we need to do is find a single address and PIE is bypassed. 
-if PIE is active it means the .symbols won't recover the correct address so we have to find it with:
-we can do that with main:
-main = io.unpack() where io is the instance of the process
-elf.symbols['main'] 
-so the base address of ELF is actually (to update all symbols) name_elf_file.address = main - elf.symbols['main'] 
-then now that we have the correct address of all symbols we can do as before and find theelf.got ['function_we_want_to_change']  and wld.symbols['function we want to have']
-then we pack it as io.pack(...) io.pacK(...) and then enjoy the shell
 ```
 
 
+### Bypassing PIE
+PIE (*Position Independent Executable*) if enabled (you can check it using [checksec](#Some-useful-commands)) means that every time you run the file it (meaning the binary) gets loaded into a different memory address. This means you cannot hardcode values such as function addressess without finding out where they are, i.e. if PIE is active it means the .symbols[] won't recover the correct address (it will recover the address offsetted which means every time you run it will be different).
+
+However, since PIE executables are based around relative rather than absolute addresses, meaning that while the locations in memory are random, the offsets between different parts of the binary remain constant. 
+
+*For example, if you know that the function main is located 0x128 bytes in memory after the base address of the binary, and you somehow find the location of main, you can simply subtract 0x128 from this to get the base address (and the same from the addresses of everything else ro retrieve the original one).*
+
+> ***PLEASE NOTE:***  Due to the way PIE randomisation works, the base address of a PIE executable (i.e. elf.address) will always end in the hexadecimal characters 000. This is because pages are the things being randomised in memory, which have a standard size of 0x1000. So you can look at this when double-checking the base address.
+
+So, all we need to do is find a single (original) address and PIE is bypassed, e.g. we can find the address of the main. 
+We already know the original address of the main because it's the start of the process, so we can retrieve it simply by doing ```main = p.unpack()```. We also know the address of the main function that has been modified with the PIE offset thanks to ```elf.symbols["main"]```.
+So we can know the PIE offset simply by doing ```main - elf.symbols["main"]```. We then have to update the addresses of all symbols (to the address without the offset caused by PIE), this can be done simply by doing:
+```python  
+elf.address = main - elf.symbols["main"]
+```
+> ***PLEASE NOTE:*** Before this remember to set the context.binary and create the elf object (that we've called *elf* here) with the context.binary.path.
+
+Now that we know this we can redirect the execution by exploiting the vulnerability of the GOT as usual (see [exploiting GOT](Exploiting-GOT-vulnerabilties-to-redirect-execution)).
 
 
+
+```
+### Bypassing ASLR
+PIE is a precondition to enable address space layout randomization (ASLR). ASLR is a security feature where the kernel (!!! not binary) loads the binary and dependencies into a random location of virtual memory each time it's run.
+
+However, the situation is very different if the ASLR, i.e. the *Address Space Layout Randomization* is enabled. (to check if it is just try to run the program a few times and if the memory addresses always change it means it's enabled).
+
+ASLR is a technique that is used to increase the difficulty of performing a buffer overflow attack beacuse it requires the attacker to know the location of an executable in memory (basically it randomizes the location where system executables are loaded into memory). 
+In other words, since buffer overflows require an attacker to know where each part of the program is located in memory. Figuring this out is usually a difficult process of trial and error. After determining that, they must craft a payload and find a suitable place to inject it. If the attacker does not know where their target code is located, it can be difficult or impossible to exploit it.
+So what ASLR does basically is that every time the program is run, components (including the stack, heap, and libraries) are moved to a different address in virtual memory. Therefore, attackers can no longer learn where their target is through trial and error, because the address will be different every time.
+```
 
 
 ```
@@ -460,10 +461,8 @@ La funzione gets() acquisisce una stringa da tastiera, fino alla fine, compresi 
  
  +PWNTOOLS DI TRINCAW
  offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
- c.binary.got["exit"]                                          /ottiene l'indirizzo della funzione exit in got
- c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del
  
- -ROP 
+ c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del ROP 
  dst = context.binary.get_section_by_name(".data").header.     /ottiene l'indirizzo di un area di memoria
  r(r14=dst, r15=b"flag.txt")                                   /scrive su i registri dati
  r.call("system", [e.symbols["parameters"]])                   /richiama una funzione con parametri custom tramite ROP (aggiunge alla chain da richiamare)
