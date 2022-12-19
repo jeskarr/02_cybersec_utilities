@@ -26,7 +26,9 @@ Let's see some commands (available to use on terminal) that might be useful for 
 - ***strings ./name_of_the_program***
     - to display all the strings used inside the program (e.g. if there is a psw or a flag stored it should appear)
 - ***objdump -option ./name_of_the_program***
-    - to display information about one or more object files. The options control what particular information to display, we can for example choose the option -d (--disassemble) which display the ASM code of the input files.
+    - to display information about one or more object files. The options control what particular information to display, we can for example choose the option:
+        - ***-d*** (--disassemble) which display the ASM code of the input files.
+        - ***--dynamic-reloc*** to see where the GOT entry for a function is, i.e. it prints the address of the relocation
 - ***checksec ./name_of_the_program***
     - to display details (+ security properties) regarding the executable file *(e.g. architecture 32bit/64bit so we know the size of the registers)*. In particular, it outputs:
         1. the architecture (32-64bit + little/big endian)
@@ -95,6 +97,9 @@ wa new_instruction_in_ASM
 wx new_bytes
 ```
 > ***PLEASE NOTE:*** you can double check the correctness of the patch with ```pdf```
+
+This is the same as [Patching with Ida](#Patching-with-Ida)
+
 
 
 ## GDB (included PEDA)
