@@ -117,3 +117,45 @@ elf.address = main - elf.symbols["main"]
 > ***PLEASE NOTE:*** Before this remember to set the context.binary and create the elf object (that we've called *elf* here) with the context.binary.path.
 
 Now that we know this we can redirect the execution by exploiting the vulnerability of the GOT as usual (see [exploiting GOT](#Exploiting-GOT-vulnerabilities-to-redirect-execution)).
+
+
+## Bypassing NX (using ROP)
+```
+per vedere cos'è no execute https://ir0nstone.gitbook.io/notes/types/stack/no-execute
+```
+
+```
+per vedere cos'è ROP 
+https://resources.infosecinstitute.com/topic/return-oriented-programming-rop-attacks/
+```
+
+
+```
+first we need to use a cyclic pattern to be able to overwrite the return address
+second we need to find the function we want to execute, typically a system() which will be called having the coomand address in edi/rdi
+
+
+to put a value into a register using ROP, we use pop register gadget, having the adderss of what we want  to put right after the gadget:
+
+we will have a chain like offset_padding (found with cyclic pattern) + pop_rdi_gadget + print_flag_cmd + system_addr
+
+a rop gadget is a short set of instruction which ends with ret
+we can find it with radare 2 ROPgadget --binary name_file | grep rdi
+found the gadget 
+after opening the file with radare use iz to find all the Strings in data section to find the string we need
+in gdb we can use p system (stands for print <system@plt>) to find the address of system()
+
+we can do our pwntools script
+process
+gadget = p64(address of the gadget)
+print_flag = p64(address of the flag)
+system = p64(address of the system())
+
+payload = b'A'*offset+payload += gadget
+payload += print_flag
+payload += system
+sendline
+interactive
+
+if stack not 16-bytes aligned (i.e. the RSP address not end with 0 before e.g. calling systems which requie the stack to be aligned) we will have a SIGSEV error 
+to align it we need to move it by 8 bytes by adding a gadget which will only contai ret. We can search it with ROPgadget adn then insert it payload += p64(address gadget only ret) payload = p64(address pyload)```
