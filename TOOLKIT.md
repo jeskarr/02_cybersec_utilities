@@ -12,7 +12,10 @@ Some useful tools for the second part of the Cybersecurity course @UniPd
     - it should already been installed if you have Linux *(on Windows you will need to install it, please note that in this case MinGW distributes a Windows version of it)*
 - Other tools useful for pwning:
     - ***PEDA*** *(i.e. Python Exploit Development Assistance for GDB)* available to download at: https://github.com/longld/peda
-    - ***pwntool*** *(python library)*, available to download at: http://docs.pwntools.com/en/stable/ or simply by doing ```pip install pwntools```
+    - ***pwntools*** *(python library)*, available to download at: http://docs.pwntools.com/en/stable/ or simply by doing ```pip install pwntools```
+- Other tools useful for ROP:
+    - the ***ROPgadget*** which is available ***on Radare2*** *(see above the link to download it)*
+    - some alternatives to *ROPgadgets* are: ***ropper*** (documentation can be found at: https://scoding.de/ropper/) or the ***ROP tools in pwntools*** (some documentation on the usage can be found at https://docs.pwntools.com/en/stable/rop/rop.html) 
 
 > ***PLEASE NOTE:***  Before doing anything it's necessary to change the permissions of the directory we want to work on. We can achieve this with:   ``` chmod -R +x ./ ```
 
@@ -88,6 +91,10 @@ Let's see some Radare commands (that we use on the terminal) that help us doing 
     ```C
     afl     //which stands for Analyse Function List
     ```
+- To display all the strings in the data sectin we simply use:
+    ```
+    iz
+    ```
 
 ### Patching with Radare2
 To patch the instruction (once you've moved to the corresponding memory address) you can use:
@@ -100,6 +107,15 @@ wx new_bytes
 > ***PLEASE NOTE:*** you can double check the correctness of the patch with ```pdf```
 
 This is the same as [Patching with Ida](#Patching-with-Ida)
+
+### ROPgadget
+In order to search for the gadgets we need to create a ROP chain, we can use the command *(N.B.: in this case the file doesn't need to be opened with r2)*:
+```
+ROPgadget  --binary ./name_of_the_file | grep filter_you_need
+```
+where we use "grep" to filter the output for what you want to search (i.e. the *filter_you_need*). 
+
+> ***EXAMPLE:*** If we want to search for all the possible gadgets in the file *"sample"* which include *"rdi"*, we will simply write ```ROPgadget --binary ./sample | grep rdi```
 
 
 
@@ -248,7 +264,7 @@ Now that we have a connection between the process and the python script we can u
     p.sendlineafter("_str_", line)      #sends data to the process (as if writing a string in terminal) only after reading a string specified by _str_ 
     p.pack(data_to_pack)       #packs into a word-size an arbitrary-sized integer and sends it to the process
     ```
-     > ***PLEASE NOTE:*** We can send the data to the process packed as bytes using the syntax ```b'string'``` (or with ```("string").encode('ascii')```) instead of strings, since sometimes there can be some problems with them. 
+> ***PLEASE NOTE:*** We can send the data to the process packed as bytes using the syntax ```b'string'``` (or with ```("string").encode('ascii')```) instead of strings, since sometimes there can be some problems with them. 
 - To receive data
     ```python
     msg = p.recvall()           #msg will store all the prints from the execution in terminal of the process
@@ -318,6 +334,24 @@ Some usefull stuff we can do is:
     (we can use this especially to [redirect execution overwriting GOT entries](./ATTACKS.md#Exploiting-GOT-vulnerabilities-to-redirect-execution))
 
 
+
+### ROP with pwntools
+```
++ vedi link https://ir0nstone.gitbook.io/notes/other/pwntools/rop
+ +PWNTOOLS DI TRINCAW
+ offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
+ 
+ c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del ROP 
+ dst = context.binary.get_section_by_name(".data").header.     /ottiene l'indirizzo di un area di memoria
+ r(r14=dst, r15=b"flag.txt")                                   /scrive su i registri dati
+ r.call("system", [e.symbols["parameters"]])                   /richiama una funzione con parametri custom tramite ROP (aggiunge alla chain da richiamare)
+ p.send(b"A" * 8 * 5 + r.chain())                              /invia la chain ROP creata
+ 
+``` 
+
+
+
+
 ```
 ### Bypassing ASLR
 PIE is a precondition to enable address space layout randomization (ASLR). ASLR is a security feature where the kernel (!!! not binary) loads the binary and dependencies into a random location of virtual memory each time it's run.
@@ -330,23 +364,5 @@ So what ASLR does basically is that every time the program is run, components (i
 ```
 
 
-```
-ROP?? Vedi segnalibro + roba stack a parte 
-(secondo me metterei anche la robe della shell qui tipo)
 
-ASM SMALL GUIDE ???
-
-La funzione gets() acquisisce una stringa da tastiera, fino alla fine, compresi eventuali spazi e il ritorno a capo che trasforma nel carattere terminatore (\0). La funzione puts() visualizza l'intera riga di testo, ad esempio una stringa inserita da tastiera, compreso il ritorno a capo
-
- 
- +PWNTOOLS DI TRINCAW
- offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
- 
- c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del ROP 
- dst = context.binary.get_section_by_name(".data").header.     /ottiene l'indirizzo di un area di memoria
- r(r14=dst, r15=b"flag.txt")                                   /scrive su i registri dati
- r.call("system", [e.symbols["parameters"]])                   /richiama una funzione con parametri custom tramite ROP (aggiunge alla chain da richiamare)
- p.send(b"A" * 8 * 5 + r.chain())                              /invia la chain ROP creata
- 
-``` 
 
