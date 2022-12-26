@@ -21,7 +21,7 @@ Some useful tools for the second part of the Cybersecurity course @UniPd
 
 
 ## Some useful commands
-Let's see some commands (available to use on terminal) that might be useful for Reverse Engineering and Pwning:
+Let's see some commands (available to use on terminal) that might be useful for Reverse Engineering, Pwning and ROP:
 - ***./name_of_the_program***
     - to simply run a program in the terminal
 - ***cat ./text_file***
@@ -39,6 +39,9 @@ Let's see some commands (available to use on terminal) that might be useful for 
         3. CANARY, they are special known values placed  between a buffer and control data on the stack to monitor buffer overflows. In this way, they can control that the function return to the real previous function
         4. NX, which stands for *Non-Executable*, it's often enabled by default and in that case the stack is non-executable (basically NX enabled can mark certain areas of memory as non-executable). This is done because often buffer-overflow exploits put code on the stack and then try to execute it. However, making this writable area non-executable can prevent such attacks.
         5. PIE, which stands for *Position Independent Executable*,  it's code that is placed somewhere in memory for execution regardless of its absolute address (basically the addresses are shifted of a (common) offset. 
+- ***ROPgadget --binary ./name_of_the_file | grep filter_you_need***
+    - to search for the gadgets we need to create a ROP chain so we can use this command where we use "grep" to filter the output for what you want to search (i.e. the *filter_you_need*). 
+    - *EXAMPLE:* If we want to search for all the possible gadgets in the file *"sample"* which include *"rdi"*, we will simply write ```ROPgadget --binary ./sample | grep rdi```
 
 
 ## Ida
@@ -95,6 +98,11 @@ Let's see some Radare commands (that we use on the terminal) that help us doing 
     ```
     iz
     ```
+- To display all the sections of the ELF file with their permissions we simply use:
+    ```
+    iS
+    ```
+  > ***PLEASE NOTE:*** An alternative could be the use in the terminal of ```readelf name_of_the_file -S```.
 
 ### Patching with Radare2
 To patch the instruction (once you've moved to the corresponding memory address) you can use:
@@ -107,15 +115,6 @@ wx new_bytes
 > ***PLEASE NOTE:*** you can double check the correctness of the patch with ```pdf```
 
 This is the same as [Patching with Ida](#Patching-with-Ida)
-
-### ROPgadget
-In order to search for the gadgets we need to create a ROP chain, we can use the command *(N.B.: in this case the file doesn't need to be opened with r2)*:
-```
-ROPgadget  --binary ./name_of_the_file | grep filter_you_need
-```
-where we use "grep" to filter the output for what you want to search (i.e. the *filter_you_need*). 
-
-> ***EXAMPLE:*** If we want to search for all the possible gadgets in the file *"sample"* which include *"rdi"*, we will simply write ```ROPgadget --binary ./sample | grep rdi```
 
 
 
@@ -208,7 +207,7 @@ In this way, we can understand the difference in bytes, i.e. the offset (ret_add
     ```
     We look at the registers that contain our pattern, and in particular to the IP/PC one (which name is EIP). It will show the offset we were looking for.
 
-> ***PLEASE NOTE:*** If the program crash but there are no information about the IP address not being valid, we can search for the pattern code that cause the crash by looking at the character displayed in the stack (the upper frame), usually the first 8 chars are enough, and then search them with ```pattern search stack_chars```. Then we look at the register containing the pattern, and in particular at the RSP/ESP (the stack pointer), and it will show the offset we were looking for.
+> ***PLEASE NOTE:*** If the program crash but there are no information about the IP address not being valid, we can search for the pattern code that cause the crash by looking at the character displayed in the stack (the upper frame, i.e. the first line of the stack displayed by gdb), usually the first 8 chars are enough, and then search them with ```pattern search stack_chars```. Then we look at the register containing the pattern, and in particular at the RSP/ESP (the stack pointer), and it will show the offset we were looking for.
 
 
 ## Pwntools
@@ -285,9 +284,9 @@ Logging is a very useful feature of pwntools that lets you know where in your co
 ### Packing
 To pack data *(e.g. from the address in hex 0x... to bytes)* pwntools uses the *context* global variable (by default little endian) to automatically calculate how the packing should work. This is possible thanks to the function:
 ```python
-//if we compile in a 64-bit architecture (i.e. packed integers have a size of 64 bit)
+# if we compile in a 64-bit architecture (i.e. packed integers have a size of 64 bit)
 packed_bytes = p64(data_to_pack)
-//or if we compile in a 32-bit architecture (i.e. packed integers have a size of 32 bit)
+# or if we compile in a 32-bit architecture (i.e. packed integers have a size of 32 bit)
 packed_bytes = p32(data_to_pack)
 ```
 > ***PLEASE NOTE:*** p64() returns a bytes-like object *(e.g. b'some_bytes')*, so if you need to add padding to it remember to use b'A' instead of using just 'A'.
