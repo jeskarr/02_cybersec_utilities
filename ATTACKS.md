@@ -188,7 +188,7 @@ In order to write something in memory using ROP we will need to:
 
 The payload will be formed by: ```padding + gadget_pop + x (where we want to write which is vaddr) + y (what we want to write (in format b'...') e.g. if we want to write the value inside flag.txt we can write b'flag.txt') + gadget_mov_y_to_x```.
 
-The process and how to make/send the payload as the same seen [above](#How-can-we-use-ROP-to-execute-a-function-with-different-parameters-(if-NX-enabled))
+The process and how to make/send the payload as the same seen [above](# How-can-we-use-ROP-to-execute-a-function-with-different-parameters-(if-NX-enabled))
 
 > ***PLEASE NOTE:*** This thing won't print/receive anything so you need, for example, to chain after this in the payload also a function which print a specific register, i.e. you can use a *pop* gadget to put the *vaddr* in the specfific register of the print function found so that it will print the area that was overwritten. Basically you're doing ```payload += gadget_pop_z + x (i.e. the vaddr) + function_print_z```
 
