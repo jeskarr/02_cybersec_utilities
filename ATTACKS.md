@@ -186,9 +186,7 @@ In order to write something in memory using ROP we will need to:
           - If it's big enough we go to the address of the section using in radare2 and by doing ```s vaddr```. Then we have to check if there is something stored in the section: we check it using radare2 following command: ```px vsize```. If the section is empty, it's better because in that way we're sure that there is very little risk to overwrite important things for the program and make it crash.
 - ***STEP 4:*** If we're satisfied with this, we can write in *vaddr*. In order to do so we need a gadget that can do it, for example ```mov [x], y``` (where x e y are registers). We also need a gadget to initialize x e y to the value we want, this could be achieved with a pop gadget i.e. ```pop x, y, ret```. To find tese gadgets we can use To find it we can use [ROPgadget](./TOOLKIT.md#Some-useful-commands)
 
-The payload will be formed by: ```padding + gadget_pop + x (where we want to write which is vaddr) + y (what we want to write (in format b'...') e.g. if we want to write the value inside flag.txt we can write b'flag.txt') + gadget_mov_y_to_x```.
-
-The process and how to make/send the payload as the same seen [above](# How-can-we-use-ROP-to-execute-a-function-with-different-parameters-(if-NX-enabled))
+The payload will be formed by: ```padding + gadget_pop + x (where we want to write which is vaddr) + y (what we want to write (in format b'...') e.g. if we want to write the value inside flag.txt we can write b'flag.txt') + gadget_mov_y_to_x```. The process and how to make/send the payload, instead, are the same as seen above.
 
 > ***PLEASE NOTE:*** This thing won't print/receive anything so you need, for example, to chain after this in the payload also a function which print a specific register, i.e. you can use a *pop* gadget to put the *vaddr* in the specfific register of the print function found so that it will print the area that was overwritten. Basically you're doing ```payload += gadget_pop_z + x (i.e. the vaddr) + function_print_z```
 
