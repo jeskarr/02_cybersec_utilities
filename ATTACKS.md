@@ -120,65 +120,75 @@ Now that we know this we can redirect the execution by exploiting the vulnerabil
 
 
 ## Bypassing NX (using ROP)
+### What is NX?
+The NX bit, which stands for *No eXecute*, defines areas of memory as either instructions or data. This means that your input will be stored as data, and any attempt to run it as instructions will crash the program, effectively neutralising shellcode.
+
+To check if it's enabled simply you can use [checksec](./TOOLKIT.md#Some-useful-commands)).
+
+### What is ROP
+To get around NX, exploit developers have to leverage a technique called ROP, Return-Oriented Programming. ROP is basically a computer security exploit technique in which the attacker uses control of the call stack *(by doing a stack overflow)* to indirectly execute cherry-picked machine instructions or groups of machine instructions within the existing program code. In ROP, these code chunks, *necessarily have to end with a* **ret** *instruction*, are called **gadgets**. Moreover, these gadgets can be chained together to make them work as a simple unit to perform arbitray computations.
+
+In other words, we found a vulnerability in the stack, usually a buffer that we can overflow. Overflowing the buffer means overwriting the return address to the gadget we want to execute and after that in the stack we can also insert some values (taken from other parts of the code) useful for the gadget. In the end, since most of the time our goal is to call a function in the program with different parameters, after all of this we can also put the address of the function (so that it will be called once the gadget is done and so removed from the stack).
+
+> ***PLEASE NOTE:*** For a more in-depth explanation you can check [here](https://resources.infosecinstitute.com/topic/return-oriented-programming-rop-attacks/)
+
+### How can we use ROP to execute a function with different parameters (if NX enabled)
+In order to change the execution of the program using ROP we will need to:
+- ***STEP 1:*** inspect the binary and look for a function with a vulnerability of buffer overflow *(in challenges it's usually called pwnme)*
+- ***STEP 2:*** once we have identified the vulnerability, we have to get the offset between the start of the buffer and the return address so that we can overwrite the latter and make it the address of the gadget we want. 
+     - In order to do so, we use [cyclic pattern](./TOOLKIT.md#Cyclic-patterns) (specifically doing the *please note* stuff)
+- ***STEP 3:*** now we need to find the address of the gadget we want to execute. We can do it using [ROPgadget](./TOOLKIT.md#Some-useful-commands)
+     - usually the gadget we need is something that puts a value into a register, that can be done by ```pop register, ret```, so we can put as parameter of *grep* in ROPgadget either the register or the pop instruction and loook for it
+     - in this case, the ```pop``` instruction will take the last item in the stack and store it in the *register* (the argument of the pop). Therefore, after the address of the gadget we will also need to put in the stack the address of the values we want to put in the *register*
+     - to check for the address of values, usually strings, we need to use radare2. In particular, we use ```iz``` which will find all the strings in data section
+- ***STEP 4:*** if we have successfully changed the registers we want, we can now put on the stack the function we want to execute with different parameters
+     - usually, if it's for example a ```system()``` instruction we want to execute with different parameters, we will need in *step 3* for example a gadget as ```pop rdi, ret```
+     - to check the address of system we can use in GDB the instruction ```p system```
+
+So the payload used as input will be formed by: ```padding + addr_gadget + addr_arguments + ... + addr_function_to_call  ```
+
+> ***PLEASE NOTE:*** If we want to add more gadgets we can just add to the payload the address of the other gadget and the arguments after that (just remember not to add the padding again).
+
+We are now ready to make our python script using pwntools:
+```python
+from pwn import *
+
+padding = b'A' * offset    #offset found in step 2 with gdb's cyclic pattern
+gadget = p64(addr_of_the_gadget)    #addr_of_the_gadget found with ROPgadget in step 3, and it's in the form 0x... (without " ")
+argument = p64(addr_of_argument)    #addr_of_argument found with radare2 in step 3, and it's theaddress of the parameter (usually of a register) we need in the gadget above
+function_to_call = p64(addr_of_function)       #addr_of_function found with radare2 in step 4, and it's the address of the function we want to call
+
+payload = padding + gadget + argument
+
+########IMPORTANT#########
+#If the stack is not 16-bytes aligned (i.e. the RSP address not end with 0 before e.g. calling system() which require the stack to be aligned) we'll have a SIGSEV error.
+#To align it we need to move it by 8 bytes by adding a gadget which will only contain a ret (we can search it with ROPgadget) and insert it in the payload
+payload += p64(gadget_only_ret)
+##########################
+
+payload += function_to_call
+
+#connect the script with the process and send the payload
+p = process("./name_of_the_file")
+p.sendline(payload)
+
+#print the result (alternatively might be needed to do a p.interactive() 
+print(p.recvall())
 ```
-per vedere cos'è no execute https://ir0nstone.gitbook.io/notes/types/stack/no-execute
-```
 
-```
-per vedere cos'è ROP 
-https://resources.infosecinstitute.com/topic/return-oriented-programming-rop-attacks/
-```
+### How can we use ROP to write something in memory (if NX enabled)
+In order to write something in memory using ROP we will need to:
+- ***STEP 1*** and ***STEP 2*** are the same as above
+- ***STEP 3***: we need to find the are of the memory where to write what we want. In order to do we need to look at the ELF file's structure:
+     - we use radare2, and in paricular, the command ```iS``` to display all the sections of the ELF file with their permissions *(an alternative (più brutta) could be the use in the terminal of ```readelf name_of_the_file -S```)*
+     - we now have to look at the sections which are also marked as writable (w) and find a suitable one. For example, if present, we can write in *.data* which is used to store variables. 
+          - To see if it's suitable we have to check first if it's big enough: we check if the *vsize* (in readelf is displayed just below the name of the section simply ) can contain the thing we want to write in it
+          - If it's big enough we go to the address of the section using in radare2 and by doing ```s vaddr```. Then we have to check if there is something stored in the section: we check it using radare2 following command: ```px vsize```. If the section is empty, it's better because in that way we're sure that there is very little risk to overwrite important things for the program and make it crash.
+- ***STEP 4:*** If we're satisfied with this, we can write in *vaddr*. In order to do so we need a gadget that can do it, for example ```mov [x], y``` (where x e y are registers). We also need a gadget to initialize x e y to the value we want, this could be achieved with a pop gadget i.e. ```pop x, y, ret```. To find tese gadgets we can use To find it we can use [ROPgadget](./TOOLKIT.md#Some-useful-commands)
 
+The payload will be formed by: ```padding + gadget_pop + x (where we want to write which is vaddr) + y (what we want to write (in format b'...') e.g. if we want to write the value inside flag.txt we can write b'flag.txt') + gadget_mov_y_to_x```.
 
-```
-inspecting binary we see function with vulnerability of buffer overflow (usually it's called pwnme in the challenges) so if we overflow the buffer with padding (see cyclic pattern) we will be able to change the return address and make it the first gadget
-first we need to use a cyclic pattern to be able to overwrite the return address (make buffer overflow)
-second we need to find the function we want to execute, typically a system() which will be called having the coomand address in edi/rdi
+The process and how to make/send the payload as the same seen [above](#How-can-we-use-ROP-to-execute-a-function-with-different-parameters-(if-NX-enabled))
 
+> ***PLEASE NOTE:*** This thing won't print/receive anything so you need, for example, to chain after this in the payload also a function which print a specific register, i.e. you can use a *pop* gadget to put the *vaddr* in the specfific register of the print function found so that it will print the area that was overwritten. Basically you're doing ```payload += gadget_pop_z + x (i.e. the vaddr) + function_print_z```
 
-to put a value into a register using ROP, we use pop register gadget, having the adderss of what we want  to put right after the gadget:
-
-we will have a chain like offset_padding (found with cyclic pattern) + pop_rdi_gadget + print_flag_cmd (basically argumetns of the gadget) + system_addr (function we want to call). If there are more function we want to make we have to += the payload with gadget arguments and the fumction but no padding
-
-a rop gadget is a short set of instruction which ends with ret
-we can find it with radare 2 ROPgadget --binary name_file | grep rdi
-found the gadget 
-after opening the file with radare use iz to find all the Strings in data section to find the string we need
-in gdb we can use p system (stands for print <system@plt>) to find the address of system()
-
-we can do our pwntools script
-process
-gadget = p64(address of the gadget)
-print_flag = p64(address of the flag)
-system = p64(address of the system())
-
-payload = b'A'*offset+payload += gadget
-payload += print_flag
-payload += system
-sendline
-interactive
-
-if stack not 16-bytes aligned (i.e. the RSP address not end with 0 before e.g. calling systems which requie the stack to be aligned) we will have a SIGSEV error 
-to align it we need to move it by 8 bytes by adding a gadget which will only contai ret. We can search it with ROPgadget adn then insert it payload += p64(address gadget only ret) payload = p64(address pyload)
-```
-
-
-```
-write something in memory if NX enabled:
-buffer pverflow with offset found with cyclic pattern
-
-to find the area of the memory where we can use:
-in radare2 To display all the sections of the ELF file with their permissions we simply use:
-    ```
-    iS
-    ```
- An alternative (più brutta) could be the use in the terminal of ```readelf name_of_the_file -S```.
- let's see the sections that are also marked as writable (W), and find a suitable section. (for example if present between the one we're looking for we can write in .data whcih is used to store variables). To see if suitable let's look inside it, i.e. first we look at the vsize (if it can containt the length of the thing we want to write inside it) (in readelf is displayed just below the name of the section) then we go to the address of the section (is the vaddr, in readelf simply called indirizzo) in radare2 by doin g s address.
- Then we use px vsize to see if there is something stored in that section ofif it's empty. It's better if it's empty because in that way we're sure that there is very little risk to overwrite important things for the program and make it crash.
- 
-If we're sodisfy with this, we can write in vaddr. In order to do so we need a gadget that can do it, for example mov [x], y (where x e y are registers). We can use ROPgadget grepping mov. We also need a gadget to initialize x e y to the value we want, this could be achieved with a pop gadget i.e. pop x. y
-
-poi sendline padding + gadget_pop + x where we want to write which is vaddr + y which is what we want to write (in format b'...') i.e. if we want to write the value inside flag.txt we can write b'write.txt' + gadget_mov_y_to_x
-
-n.b. this thing wonìt print/receive anything so you need for example to chain after that also a function which print a specific register (i.e. you can use a pop gadget to put the vaddr in the register and print the are overwritten)
-```
