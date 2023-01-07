@@ -332,6 +332,7 @@ Some usefull stuff we can do is:
     ```
     (we can use this especially to [redirect execution overwriting GOT entries](./ATTACKS.md#Exploiting-GOT-vulnerabilities-to-redirect-execution))
 
+> ***PLEASE NOTE:*** Remember then to send these recovered addresses as str, otherwise it won't work. Alternatively, you can send it using ```p.pack(addr)``` which converts the addr and also sends it.
 
 
 ### ROP with pwntools
