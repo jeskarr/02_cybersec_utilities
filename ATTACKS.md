@@ -30,6 +30,8 @@ payload = b'A' * n       # n is the number of bytes for the padding
 payload += p32(address_to_go)   # pack the address of the function to execute (p64 if arch is 64-bit, you can check with checksec)
 
 p.sendline(payload)
+msgout = p.recvall()
+print(msgout)       #remember to print the result!!!!!
 # if the function to execute is the opening of a shell then you need to add also:
 # p.interactive()
 ```
@@ -98,6 +100,7 @@ You can retrieve the address where to jump instead of the GOT address found abov
 - using pwntools:
     - we can use the ```functionAdd = elf.symbols["name_of_the_function"]```, and in this case *functionAdd* will store the address of the function
 
+> ***PLEASE NOTE:*** A great idea is for example to retrieve the absolute address of the *exit()* function and change it to the address of the function you want to call. Please remember that if it is the program itself changing the value of the address you have to pay attention at the type of variables they're asking for *(e.g if the variable where the program is storing the addresses is an integer, you have to convert the hex address to an int number and then into a string in order to send it).*
 
 ### Bypassing PIE
 PIE (*Position Independent Executable*) if enabled (you can check it using [checksec](./TOOLKIT.md#Some-useful-commands)) means that every time you run the file it (meaning the binary) gets loaded into a different memory address. This means you cannot hardcode values such as function addressess without finding out where they are, i.e. if PIE is active it means the .symbols[] won't recover the correct address (it will recover the address offsetted which means every time you run it will be different).
