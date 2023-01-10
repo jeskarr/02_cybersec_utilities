@@ -74,22 +74,25 @@ print(p.recvall())
 ```
 
 
-## Patching 
+## Patching (ptrace version)
 ### Write up
+We can use Ida to inspect the binary. We notice that in the function ___________ there is a debugger check (ptrace) so we need to avoid it in order to use gdb to retrieve the flag. In order to do so, we can patch the binary with Ida and in particular we change the jne _______some_addr______ jump at 0x__________ with jmp _____some_addr______.
+
+Now, we can use gdb-peda and put a breakpoint in 0x__________ (by doin b*0x__________),  i.e. just before the flag is deleted by the program. So when wwe run the program with gdb-peda we will stop at the breakpoint where the flag is still visible in the stack.
+
+The flag is: _____________
+
 
 ### Patching procedure
-Firstly, copy the executable with: cp ./_________  ___________patched.
-Then open the ___________patched with Ida.
+Firstly, copy the executable with: cp ./______  __________ _patched.
+Then open the __________ _patched with Ida.
 
-> ***PLEASE NOTE:*** Remember %rdi, %rsi, %rdx, %rcx, %r8, and %r9 to store function parameters and %rax to store the return address. Base pointer (%ebp, %rbp) to store the current stack address.
-Also, remember that the destination is always before the source in the 2-operator instructions.
-
-If not explicitely written in the text of the exercise, if there is a print_flag function we can overwrite the exit instruction with 
+> ***PLEASE NOTE***: If not explicitely forbidden in the text of the exercise, if there is a print_flag function we can overwrite another random instruction with 
 a simple jmp print_flag_address using radare 2, by:
 ```python
 r2 -w ./name_prog     # open the file in write mode
 afl     # to retrieve the address of the function print_flag
-s 0x___       # to move to the addr of the exit function 
+s 0x___       # to move to the addr of the function to be overwritten
 wa jmp 0x___      # to patch the binary
 ```
 Inside the print_flag there might be some controls done using test/jump instruction, we can simply use ida to patch this instruction and reverse the jumps.
