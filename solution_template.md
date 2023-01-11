@@ -78,24 +78,26 @@ print(p.recvall())
 ### Write up
 We can use Ida to inspect the binary. We notice that in the function ___________ there is a debugger check (ptrace) so we need to avoid it in order to use gdb to retrieve the flag. In order to do so, we can patch the binary with Ida and in particular we change the jne _______some_addr______ jump at 0x__________ with jmp _____some_addr______.
 
-Now, we can use gdb-peda and put a breakpoint in 0x__________ (by doin b*0x__________),  i.e. just before the flag is deleted by the program. So when wwe run the program with gdb-peda we will stop at the breakpoint where the flag is still visible in the stack.
+Now, we can use gdb-peda and put a breakpoint in 0x__________ (by doin b*0x__________),  ________i.e. just before the flag is deleted by the program / at the moment of the assignment of the variable _______  at _______ with the instruction ___________   ________. So when we run the program with gdb-peda it will stop at the breakpoint where the flag is still visible, so we can retrieve it by doing ______print $eax______. Then we convert it to decimal and after continuing with the debugging (use the command "c") we can input the value discovered and get the flag.
 
 The flag is: _____________
 
 
 ### Patching procedure
 Firstly, copy the executable with: cp ./______  __________ _patched.
-Then open the __________ _patched with Ida.
+Then open the __________ _patched with Ida and inspect the binary. If there is a function which check if the debugger is active (ptrace) just disable it (see above how you have made it).
+
+If you cannot patch the binary, as per request of the binary, just use gdb to add a breakpoint in the correct spot (see above how you can do it):
 
 > ***PLEASE NOTE***: If not explicitely forbidden in the text of the exercise, if there is a print_flag function we can overwrite another random instruction with 
-a simple jmp print_flag_address using radare 2, by:
-```python
-r2 -w ./name_prog     # open the file in write mode
-afl     # to retrieve the address of the function print_flag
-s 0x___       # to move to the addr of the function to be overwritten
-wa jmp 0x___      # to patch the binary
-```
-Inside the print_flag there might be some controls done using test/jump instruction, we can simply use ida to patch this instruction and reverse the jumps.
+>a simple jmp print_flag_address using radare 2, by:
+>  ```python
+>  r2 -w ./name_prog     # open the file in write mode
+>  afl     # to retrieve the address of the function print_flag
+>  s 0x___       # to move to the addr of the function to be overwritten
+>  wa jmp 0x___      # to patch the binary
+>  ```
+>  Inside the print_flag there might be some controls done using test/jump instruction, we can simply use ida to patch this instruction and reverse the jumps.
 
 
 
