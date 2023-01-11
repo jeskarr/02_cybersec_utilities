@@ -5,7 +5,7 @@ In this file we will see how can we use the tools (seen in [TOOLKIT](./TOOLKIT.m
 ## Changing ASM instructions (or bytes)
 It's possible to change an ASM instruction or bytes by patching the program (see [Ida patching](./TOOLKIT.md#Patching-with-Ida) or [Radare2 patching](./TOOLKIT.md#Patching-with-Radare2)). This type of attack is especially used to reverse a jmp instruction *(e.g. from JNZ to JZ)* or to avoid an istruction to be executed by replacing it with NOPs.
 
-> ***PLEASE NOTE:*** If the exercise require you not to patch the binary, sometimes it might be useful enough to put a breakpoint using gdb in the correct place.
+> ***PLEASE NOTE:*** If the exercise require you not to patch the binary, sometimes it might be useful enough to put a breakpoint using gdb in the correct place (e.g. just after the function you would like to modify but can't so you can read the register eax (with the returned value) by doing ```print $eax``` and then with ```c``` you continue the debug and input the value discovered at the breakpoint (converted to decimal obviously)) .
 
 
 
