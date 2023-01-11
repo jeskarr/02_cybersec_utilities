@@ -94,10 +94,14 @@ Let's see some Radare commands (that we use on the terminal) that help us doing 
     ```C
     afl     //which stands for Analyse Function List
     ```
-- To display all the strings in the data sectin we simply use:
+- To display all the strings in the data section we simply use:
     ```
     iz
     ```
+  If we're looking for a particular string we can do:
+   ```C
+   /i string        //remember that is case-sensitive
+   ```
 - To display all the sections of the ELF file with their permissions we simply use:
     ```
     iS
