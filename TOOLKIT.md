@@ -185,6 +185,7 @@ x/s var_address        // in general  is i
 Other commands used to examine data when your program is stopped:
    - To check the assembly code of the program:
         - type ```disassemble name_of_the_function``` or ```disas name_of_the_function```
+        > ***PLEASE NOTE:*** Remember to run/start the program with gdb before using this command, otherwise the addresses of the instructions won't be correct (they won't have the correct prefix/offset)
    - To show all the calls done until that moment:
         - type ```bt```, which stands for *backtrace*
 
