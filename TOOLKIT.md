@@ -337,36 +337,3 @@ Some usefull stuff we can do is:
     (we can use this especially to [redirect execution overwriting GOT entries](./ATTACKS.md#Exploiting-GOT-vulnerabilities-to-redirect-execution))
 
 > ***PLEASE NOTE:*** Remember then to send these recovered addresses as str, otherwise it won't work. Alternatively, you can send it using ```p.pack(addr)``` which converts the addr and also sends it.
-
-
-### ROP with pwntools
-```
-+ vedi link https://ir0nstone.gitbook.io/notes/other/pwntools/rop
- +PWNTOOLS DI TRINCAW
- offset = cyclic_find("kaaa")                                  /ritorna la distanza della stringa kaaa sul cyclic
- 
- c.binary.functions["win"].address                             /ottiene l'indirizzo di un metodo all'interno del ROP 
- dst = context.binary.get_section_by_name(".data").header.     /ottiene l'indirizzo di un area di memoria
- r(r14=dst, r15=b"flag.txt")                                   /scrive su i registri dati
- r.call("system", [e.symbols["parameters"]])                   /richiama una funzione con parametri custom tramite ROP (aggiunge alla chain da richiamare)
- p.send(b"A" * 8 * 5 + r.chain())                              /invia la chain ROP creata
- 
-``` 
-
-
-
-
-```
-### Bypassing ASLR
-PIE is a precondition to enable address space layout randomization (ASLR). ASLR is a security feature where the kernel (!!! not binary) loads the binary and dependencies into a random location of virtual memory each time it's run.
-
-However, the situation is very different if the ASLR, i.e. the *Address Space Layout Randomization* is enabled. (to check if it is just try to run the program a few times and if the memory addresses always change it means it's enabled).
-
-ASLR is a technique that is used to increase the difficulty of performing a buffer overflow attack beacuse it requires the attacker to know the location of an executable in memory (basically it randomizes the location where system executables are loaded into memory). 
-In other words, since buffer overflows require an attacker to know where each part of the program is located in memory. Figuring this out is usually a difficult process of trial and error. After determining that, they must craft a payload and find a suitable place to inject it. If the attacker does not know where their target code is located, it can be difficult or impossible to exploit it.
-So what ASLR does basically is that every time the program is run, components (including the stack, heap, and libraries) are moved to a different address in virtual memory. Therefore, attackers can no longer learn where their target is through trial and error, because the address will be different every time.
-```
-
-
-
-
