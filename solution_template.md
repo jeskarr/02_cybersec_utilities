@@ -87,7 +87,7 @@ The flag is: _____________
 Firstly, copy the executable with: cp ./______  __________ _patched.
 Then open the __________ _patched with Ida and inspect the binary. If there is a function which check if the debugger is active (ptrace) just disable it (see above how you have made it).
 
-If you cannot patch the binary, as per request of the binary, just use gdb to add a breakpoint in the correct spot (see above how you can do it):
+If you cannot patch the binary, as per request of the binary, just use gdb to add a breakpoint in the correct spot (see above how you can do it).
 
 > ***PLEASE NOTE***: If not explicitely forbidden in the text of the exercise, if there is a print_flag function we can overwrite another random instruction with 
 >a simple jmp print_flag_address using radare 2, by:
